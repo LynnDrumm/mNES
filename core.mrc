@@ -3,7 +3,7 @@
 alias nes.init {
 
         echo -s -------------------------------------
-        echo -s mNES v0.2
+        echo -s mNES v0.3
         echo -s (c) Lynn Drumm 2023
         echo -s All rights and/or wrongs reserved.
         echo -s -------------------------------------
