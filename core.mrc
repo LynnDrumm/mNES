@@ -8,9 +8,10 @@ alias nes.init {
         echo -s All rights and/or wrongs reserved.
         echo -s -------------------------------------
 
-        ;; load opcode script (:
+        ;; load and init opcode script (:
 
         .load -rs $scriptdir $+ ops.mrc
+        nes.cpu.generateOpcodeTable
 
         ;; create hash table for global storage
 
@@ -239,7 +240,7 @@ alias nes.system {
 alias nes.cpu.loop {
 
         ;; profiling start
-        ;var %ticks $ticks
+        set %ticks $ticks
 
         ;; make RAM available as binvar
         noop $hget(nes.cpu, ram, &RAM)
@@ -247,15 +248,18 @@ alias nes.cpu.loop {
         ;; get opcode byte (in hex) at program counter's address
         var %opcode $hex($bvar(&RAM, $hget(nes.cpu, programCounter)))
 
-        ;; return value is typically length, mnemonic, operand
-        tokenize 32 $nes.cpu.opcode. [ $+ [ %opcode ] ]
+        ;; return value is typically mnemonic, length, mode
+        tokenize 32 $nes.cpu.decodeInstruction(%opcode)
+
+        var %mnemonic   $1
+        var %length     $2
+        var %mode       $3
+        var %operand    $4
 
         ;; show pretty output
-        nes.cpu.debug %opcode $1-
+        nes.cpu.debug %ticks $hget(nes.cpu, programCounter) %opcode $1-
 
-        var %length $1
-
-        if (%length > 0) {
+        if (%mnemonic != unimplemented) {
 
                 ;; increase program counter by instruction length.
                 ;; is this the smart way to do it? should instructions do it themselves?
@@ -264,43 +268,70 @@ alias nes.cpu.loop {
 
         else {
 
-
                 nes.cpu.stop
         }
-
-        ;; profiling end
-        ;echo -s cpu loop took $calc($ticks - %ticks) $+ ms.
 }
 
-;; fancy printing of what da cpu doin'
 alias nes.cpu.debug {
 
-        ;; all of this is very stupid and hacky and i might get rid of it.
-        var %opcode   $1
-        var %length   $2
-        var %mnemonic $3
-        var %mode     $4
-        var %operand  $5
+        var %ticks      $1
+        var %pc         $2
+        var %opcode     $3
+        var %mnemonic   $4
+        var %length     $5
+        var %mode       $6
+        var %operand    $7
 
+        if (%mnemonic != unimplemented) {
 
-        var %pc $+(42$54,$hex($hget(nes.cpu, programCounter)),:)
+                ;; special handling for how to display the operand depending on length/mode
+                if (%mode == implicit) {
 
-        if (%mode == immediate) {
+                        var %operand
+                }
 
-                var %operand $+(50#$,62,$base(%operand, 10, 16, 2))
+                elseif (%mode == immediate) {
+
+                        var %operand $+(50#$,74,$base(%operand, 10, 16, 2))
+                }
+
+                elseif (%mode == absolute) {
+
+                        var %operand $+(50$,74,$base(%operand, 10, 16, 4))
+                }
+
+                elseif (%mode == relative) {
+
+                        var %operand $+(50$,74,$base(%operand, 10, 16, 2))
+                }
+
+                elseif (%mode == zeropage) {
+
+                        var %operand $+(50$,74,$base(%operand, 10, 16, 2))
+                }
+
+                var %mnemonic $+(71,%mnemonic)
         }
 
-        elseif (%mode == absolute) {
+        else {
 
-                var %operand $+(50$,62,$base(%operand, 10, 16, 4))
+                var %mnemonic 54,52 $+ /!\ 66,28 $+ %mnemonic
         }
 
-        elseif (%mode == zeropage) {
+        var %ticks 96 $+ $calc($ticks - %ticks) $+ 94ms.
 
-                var %operand $+(50$,62,$base(%operand, 10, 16, 2))
-        }
+        echo -s 89,89 $padString(24 ,$+(41$,65,$hex(%pc)) 93: $+(44$68,%opcode) 93-> %mnemonic %operand) $chr(160) $padString(12,$+(92,%mode)) %ticks
+}
 
-        echo -s %pc $+(46$58,%opcode,) -> $+(61,%mnemonic) %operand
+;; pad $2- up to $1 characters, using $chr(160) ((unicode space))
+alias -l padString {
+
+        var %stringLength       $len($strip($2-))
+        var %newLength          $1
+        var %padLength          $calc(%newLength - %stringLength)
+        var %padding            $str($chr(160),%padLength)
+
+        return $iif($prop == pre, $+(%padding,$2-), $+($2-,%padding))
 }
 
 alias nes.cpu.stop {
@@ -310,6 +341,7 @@ alias nes.cpu.stop {
                 .timernes.cpu.loop off
 
                 echo -s cpu loop stopped.
+                halt
         }
 
         else {
