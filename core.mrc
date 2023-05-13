@@ -254,7 +254,7 @@ alias nes.cpu.loop {
         var %mnemonic   $1
         var %length     $2
         var %mode       $3
-        var %operand    $4
+        var %operand    $4-
 
         ;; show pretty output
         nes.cpu.debug %ticks $hget(nes.cpu, programCounter) %opcode $1-
@@ -280,7 +280,7 @@ alias nes.cpu.debug {
         var %mnemonic   $4
         var %length     $5
         var %mode       $6
-        var %operand    $7
+        var %operand    $7-
 
         if (%mnemonic != unimplemented) {
 
@@ -297,7 +297,9 @@ alias nes.cpu.debug {
 
                 elseif (%mode == absolute) {
 
-                        var %operand $+(50$,74,$base(%operand, 10, 16, 4))
+                        tokenize 32 %operand
+
+                        var %operand $+(50$,74,$base($+($hex($1),$hex($2)), 16, 16, 4))
                 }
 
                 elseif (%mode == relative) {
@@ -311,16 +313,24 @@ alias nes.cpu.debug {
                 }
 
                 var %mnemonic $+(71,%mnemonic)
+
+                ;; calculate n prettify execution time
+                var %ticks 96 $+ $calc($ticks - %ticks) $+ 94ms.
+
+                ;; all the extra bits that don't need printing when when
+                ;; we encounter an unimplemented op
+                var %string2 $padstring(6, %operand) $padString(12,$+(92,%mode)) %ticks
         }
 
         else {
 
-                var %mnemonic 54,52 $+ /!\ 66,28 $+ %mnemonic
+                var %mnemonic 54,52 $+ /!\ 66,28 $+ $+($chr(160),%mnemonic,$chr(160))
         }
 
-        var %ticks 96 $+ $calc($ticks - %ticks) $+ 94ms.
+        ;; the big line that put stuff on screen~
+        var %string1 $padString(19 ,$+(41$,65,$hex(%pc)) 93: $+(44$68,%opcode) 93-> %mnemonic)
 
-        echo -s 89,89 $padString(24 ,$+(41$,65,$hex(%pc)) 93: $+(44$68,%opcode) 93-> %mnemonic %operand) $chr(160) $padString(12,$+(92,%mode)) %ticks
+        echo -s %string1 %string2
 }
 
 ;; pad $2- up to $1 characters, using $chr(160) ((unicode space))

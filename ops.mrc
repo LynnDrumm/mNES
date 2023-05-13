@@ -54,6 +54,19 @@ alias nes.cpu.mnemonic.sta {
                 var %address $mergeBytes(%operand)
         }
 
+        ;; i don't understand this one.
+
+        ;; the second byte of the instruction (operand)
+        ;; points to a location in zeropage,
+        ;; and ... ?????
+
+        ;; we'll get to this one later. i just found problems elsewhere!
+
+        if (%mode == indirect,y) {
+
+                var %address %operand
+        }
+
         memWrite %address $hget(nes.cpu, accumulator)
 }
 
@@ -188,6 +201,8 @@ alias nes.cpu.mnemonic.beq {
                 }
         }
 }
+
+;; -----------------------------------------------------------------------------------------------------------------------------------
 
 alias -l mergeBytes {
 
