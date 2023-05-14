@@ -181,23 +181,40 @@ alias nes.cpu.mnemonic.and {
 
 alias nes.cpu.mnemonic.beq {
 
-        ;; always relative
+        ;; wrong. it's wrong. it's all wrong.
+        ;; aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        ;; *stabs brain with fork*
 
+        ;; mode is always relative
         var %operand $3
 
+        ;; get sign bit (bit 7 (8), "most significant bit")
+        var %sign $left($base(%operand, 10, 2, 8), 1)
+
+        ;; convert from decimal to binary, get the first 7 bits,
+        ;; then convert back to decimal
+        ;; this is totally not a stupid way to do it, shut up >.>
+        var %value $base($right($base(%operand, 10, 2, 8), 7), 2, 10)
+
+        echo -s value: dec: %value hex: $hex(%value) bin: $base(%value, 10, 2)
+
+        echo -s BEQ+: $hex($calc($hget(nes.cpu, programCounter) + %value))
+        echo -s BEQ-: $hex($calc($hget(nes.cpu, programCounter) - %value))
+
+        ;; branch only if the Zero flag of the status register is 1
         if ($hget(nes.cpu, status.zero) == 1) {
 
                 ;; if the uppermost bit is 1, the value is negative
-                if ($left($base(%operand, 10, 2, 8), 1) == 1) {
+                if (%sign == 1) {
 
-                        ;; decrement the program counter by the value of the operand
-                        hdec nes.cpu programCounter %operand
+                        ;; decrement the program counter by the value
+                        hdec nes.cpu programCounter %value
                 }
 
                 else {
 
-                        ;; increment the program counter by the value of the operand
-                        hinc nes.cpu programCounter %operand
+                        ;; increment the program counter by the value
+                        hinc nes.cpu programCounter %value
                 }
         }
 }
