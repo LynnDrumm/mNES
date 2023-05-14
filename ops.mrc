@@ -6,6 +6,8 @@ alias nes.cpu.mnemonic.sei {
 
         ;; SEI is always implict
         hadd nes.cpu status.interrupt 1
+
+        return
 }
 
 ;; clear decimal flag
@@ -196,27 +198,24 @@ alias nes.cpu.mnemonic.beq {
         ;; this is totally not a stupid way to do it, shut up >.>
         var %value $base($right($base(%operand, 10, 2, 8), 7), 2, 10)
 
-        echo -s value: dec: %value hex: $hex(%value) bin: $base(%value, 10, 2)
+        ;; if the uppermost bit is 1, the value is negative
+        if (%sign == 1) {
 
-        echo -s BEQ+: $hex($calc($hget(nes.cpu, programCounter) + %value))
-        echo -s BEQ-: $hex($calc($hget(nes.cpu, programCounter) - %value))
+                var %result $calc($hget(nes.cpu, programCounter) - %value)
+        }
+
+        else {
+
+                var %result $calc($hget(nes.cpu, programCounter) + %value)
+        }
 
         ;; branch only if the Zero flag of the status register is 1
         if ($hget(nes.cpu, status.zero) == 1) {
 
-                ;; if the uppermost bit is 1, the value is negative
-                if (%sign == 1) {
-
-                        ;; decrement the program counter by the value
-                        hdec nes.cpu programCounter %value
-                }
-
-                else {
-
-                        ;; increment the program counter by the value
-                        hinc nes.cpu programCounter %value
-                }
+                hadd nes.cpu programCounter %result
         }
+
+        return %result
 }
 
 ;; -----------------------------------------------------------------------------------------------------------------------------------
@@ -226,12 +225,6 @@ alias -l mergeBytes {
         tokenize 32 $1-
 
         return $dec($+($hex($1),$hex($2)))
-}
-
-;; looks at current program counter + 1, retrieves $1 - 1 bytes.
-alias -l getOperand {
-
-        return $bvar(&RAM, $calc($hget(nes.cpu, programCounter) + 1), $calc($1 - 1))
 }
 
 alias -l dec {
@@ -255,61 +248,4 @@ alias -l memWrite {
 alias -l memRead {
 
         return $bvar(&RAM, $calc($1 + 1))
-}
-
-alias nes.cpu.generateOpcodeTable {
-
-        if ($hget(nes.cpu.opcode) != $null) {
-
-                hfree nes.cpu.opcode
-        }
-
-        hmake nes.cpu.opcode 256
-
-        echo -s >> generating opcode table...
-
-        ;; file containing list of all ops
-        var %file $scriptdir $+ ops.dat
-
-        ;; get total entries in file
-        var %t $lines(%file)
-        var %i 1
-
-        while (%i <= %t) {
-
-                var %entry $read(%file, %i)
-                echo -s adding $read(%file, %i)
-                hadd nes.cpu.opcode %entry
-                inc %i
-        }
-
-        echo -s >> opcode table generated.
-}
-
-alias nes.cpu.decodeInstruction {
-
-        var %instruction $hget(nes.cpu.opcode, $1)
-
-        if (%instruction != $null) {
-
-                ;; set mnemonic, byte length, and mode of instruction to $1-
-                tokenize 32 %instruction
-
-                var %mnemonic   $1
-                var %length     $2
-                var %mode       $3
-                var %operand    $getOperand($2)
-
-                ;; execute it
-                nes.cpu.mnemonic. [ $+ [ %mnemonic ] ] %length %mode %operand
-
-                ;; increment program counter based on instruction length
-
-                return %mnemonic %length %mode %operand
-        }
-
-        else {
-
-                return unimplemented
-        }
 }

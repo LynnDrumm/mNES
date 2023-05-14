@@ -189,11 +189,11 @@ alias nes.init {
                 ;; the program counter should be initialised by
                 ;; reading whatever address is stored at $FFFC and then
                 ;; jump there and start execution.
-
                 var %startAddressLo $hex($bvar(&RAM, $dec(FFFC)))
                 var %startAddressHi $hex($bvar(&RAM, $dec(FFFD)))
 
-                hadd nes.cpu programCounter $dec($+(%startAddressHi,%startAddressLo))
+                ;; we decrease it by 1 so it's in the correct position when the cpu loop starts
+                hadd nes.cpu programCounter $calc($dec($+(%startAddressHi,%startAddressLo)) - 1)
 
                 ;; stack is 256 bytes from $0100 - $01FF.
                 ;; it starts at $01FF and is filled from there, backwards.
@@ -245,92 +245,138 @@ alias nes.cpu.loop {
         ;; make RAM available as binvar
         noop $hget(nes.cpu, ram, &RAM)
 
+        ;; increment the current program counter, and assign it to %pc
+        hinc nes.cpu programCounter
+
         ;; get opcode byte (in hex) at program counter's address
         var %opcode $hex($bvar(&RAM, $hget(nes.cpu, programCounter)))
 
-        ;; return value is typically mnemonic, length, mode
-        tokenize 32 $nes.cpu.decodeInstruction(%opcode)
+        ;; get mnemonic, instruction length (bytes), and mode
+        tokenize 32 $hget(nes.cpu.opcode, %opcode)
 
         var %mnemonic   $1
-        var %length     $2
-        var %mode       $3
-        var %operand    $4-
 
-        ;; show pretty output
-        nes.cpu.debug %ticks $hget(nes.cpu, programCounter) %opcode $1-
+        if (%mnemonic != $null) {
 
-        if (%mnemonic != unimplemented) {
+                var %length     $2
+                var %mode       $3
 
-                ;; increase program counter by instruction length.
-                ;; is this the smart way to do it? should instructions do it themselves?
+                ;; increment the program counter by operand length.
+                ;; this must be done BEFORE executing the instruction.
                 hinc nes.cpu programCounter %length
+
+                ;; set %operand if instruction length >1 bytes, else leave it empty.
+                var %operand $iif(%length > 1, $bvar(&RAM, $calc($hget(nes.cpu, programCounter) - 2), $calc(%length - 1)))
+
+                ;; execute it
+                nes.cpu.mnemonic. [ $+ [ %mnemonic ] ] %length %mode %operand
+
+                ;; if we get a return value, put it in %result, else keep it empty.
+                var %result $result
+
+                ;; show pretty output
+                nes.cpu.debug $hget(nes.cpu, programCounter) %opcode %length %mode %mnemonic %operand %result %ticks
         }
 
         else {
 
+                ;; just pretend the instruction length is 0
+                nes.cpu.debug $hget(nes.cpu, programCounter) %opcode 0
                 nes.cpu.stop
         }
+
+        ;; if something goes wrong, halt the cpu emulation
+
+        return
+        :error
+        nes.cpu.stop
 }
 
+;; i may have to re-do the whole debug display after all
+;; it doesn't really work for showing both the instruction
+;; *and* the result (like with BEQ, for example).
+
+;; so. let's re-think this, then?
 alias nes.cpu.debug {
 
-        var %ticks      $1
-        var %pc         $2
-        var %opcode     $3
-        var %mnemonic   $4
-        var %length     $5
-        var %mode       $6
-        var %operand    $7-
+        var %pc         $+(41$,65,$hex($1))
+        var %opcode     $+(4468,$2)
+        var %length     $3
 
-        if (%mnemonic != unimplemented) {
+        ;; instructions are at least 1 byte long.
+        ;; if not, well, it's just not implemented yet!
+        if (%length > 0) {
 
-                ;; special handling for how to display the operand depending on length/mode
+                var %mode       $4
+                var %mnemonic   $+(71,$5)
+
+                ;; special handling for how to display the operand/result depending on length/mode
                 if (%mode == implicit) {
 
-                        var %operand
+                        ;; since implicit instructions have no operand or "result",
+                        ;; %ticks is set to the 6th parameter.
+
+                        var %ticks $6
+
+                        var %result %operand
                 }
 
                 elseif (%mode == immediate) {
 
-                        var %operand $+(50#$,74,$base(%operand, 10, 16, 2))
+                        var %ticks $7
+
+                        ;; immediate mode means the operand is a single byte direct value,
+                        ;; to be prefixed with #$, not to be confused with zeropage, which
+                        ;; is also a single byte operand but is displayed as an 8-bit address.
+                        var %operand $+(57,$base($6, 10, 16, 2))
+                        var %result $+(50#$,74,$base($6, 10, 16, 2))
+
                 }
 
                 elseif (%mode == absolute) {
 
-                        tokenize 32 %operand
+                        var %ticks $8
 
-                        var %operand $+(50$,74,$base($+($hex($1),$hex($2)), 16, 16, 4))
+                        ;; this is an address
+                        var %operand $+(57,$base($6, 10, 16, 2)) $+(69,$base($7, 10, 16, 2))
+                        var %result $+(50$,74,$base($+($hex($6),$hex($7)), 16, 16, 4))
                 }
 
                 elseif (%mode == relative) {
 
-                        var %operand $+(50$,74,$base(%operand, 10, 16, 2))
+                        var %ticks $8
+
+                        ;; if mode is relative, we'd rather display the result of the
+                        ;; instruction, so we can see where a branch ends up,
+                        ;; rather than the offset we may or not be adding/subtracting.
+
+                        ;; we're still keeping the original operand as well though,
+                        ;; just to keep things clear
+                        var %operand $+(57,$base($6, 10, 16, 2))
+                        var %result $+(50$,74,$base($7, 10, 16, 4))
                 }
 
                 elseif (%mode == zeropage) {
 
-                        var %operand $+(50$,74,$base(%operand, 10, 16, 2))
-                }
+                        var %ticks $7
 
-                var %mnemonic $+(71,%mnemonic)
+                        ;; operands on single page operations are only 1 byte long.
+                        var %operand $+(57,$base($6, 10, 16, 2))
+                        var %result $+(50$,74,$base($6, 10, 16, 2))
+                }
 
                 ;; calculate n prettify execution time
                 var %ticks 96 $+ $calc($ticks - %ticks) $+ 94ms.
 
-                ;; all the extra bits that don't need printing when when
-                ;; we encounter an unimplemented op
-                var %string2 $padstring(6, %operand) $padString(12,$+(92,%mode)) %ticks
+                ; the big line that put da stuff on screen~
+                echo -s %pc 93: %opcode $padString(5, %operand) 93-> %mnemonic $padString(8, %result) $padString(12, $+(94,%mode)) %ticks
         }
 
         else {
 
-                var %mnemonic 54,52 $+ /!\ 66,28 $+ $+($chr(160),%mnemonic,$chr(160))
+                ;; print a warning if we encounter an unimplemented opcode
+                echo -s %pc 93: 54,52 $+ /!\ 66,28 $+ $+($chr(160),%mnemonic,$chr(160))
         }
-
-        ;; the big line that put stuff on screen~
-        var %string1 $padString(19 ,$+(41$,65,$hex(%pc)) 93: $+(44$68,%opcode) 93-> %mnemonic)
-
-        echo -s %string1 %string2
 }
 
 ;; pad $2- up to $1 characters, using $chr(160) ((unicode space))
@@ -360,6 +406,36 @@ alias nes.cpu.stop {
         }
 }
 
+alias nes.cpu.generateOpcodeTable {
+
+        if ($hget(nes.cpu.opcode) != $null) {
+
+                hfree nes.cpu.opcode
+        }
+
+        hmake nes.cpu.opcode 256
+
+        echo -s >> generating opcode table...
+
+        ;; file containing list of all ops
+        var %file $scriptdir $+ ops.dat
+
+        ;; get total entries in file
+        var %t $lines(%file)
+        var %i 1
+
+        while (%i <= %t) {
+
+                var %entry $read(%file, %i)
+                echo -s adding $+(,$rand(76,87),$read(%file, %i))
+                hadd nes.cpu.opcode %entry
+                inc %i
+        }
+
+        echo -s >> opcode table generated.
+}
+
+;; this entire function might be a bit overkill since it's only used once, I think.
 alias nes.baseConvertRange {
 
         ;; i tried using the $* hack here, but it didn't work. sad 😞
@@ -391,12 +467,13 @@ alias nes.baseConvertRange {
         return %r
 }
 
-
+;; explicit hex -> decimal conversion
 alias -l dec {
 
         return $base($1, 16, 10)
 }
 
+;; explicit decimal -> hex conversion
 alias -l hex {
 
         return $base($1, 10, 16)
