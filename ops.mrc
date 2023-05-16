@@ -105,12 +105,7 @@ alias nes.cpu.mnemonic.txs {
 
         ;; set negative flag equal to the 7th bit,
         ;; i assume of the byte in the x register?
-        hadd nes.cpu status.negative $left($base(%byte, 10, 2, 8), 1)
-
-        ;; set zero flag if operand is #$00, else clear it.
-        ;; TXS has no operand because it's always implicit, though
-        ;; do we just clear it then? or use the value we got from x?
-        hadd nes.cpu status.zero 1
+        hadd nes.cpu status.negative $left($base(%value, 10, 2, 8), 1)
 
         ;; store the value of X into the stack
         memWrite $hget(nes.cpu, stackPointer) $hget(nes.cpu, x)

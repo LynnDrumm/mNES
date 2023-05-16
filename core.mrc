@@ -261,17 +261,25 @@ alias nes.cpu.loop {
                 var %length     $2
                 var %mode       $3
 
+                ;; set %operand if instruction length >1 bytes, else leave it empty.
+                var %operand $iif(%length > 1, $bvar(&RAM, $calc($hget(nes.cpu, programCounter) + 1), $calc(%length - 1)))
+
                 ;; increment the program counter by operand length.
                 ;; this must be done BEFORE executing the instruction.
-                hinc nes.cpu programCounter %length
+                hinc nes.cpu programCounter $calc(%length - 1)
 
-                ;; set %operand if instruction length >1 bytes, else leave it empty.
-                var %operand $iif(%length > 1, $bvar(&RAM, $calc($hget(nes.cpu, programCounter) - 2), $calc(%length - 1)))
-
-                ;; execute it
+                ;; execute the instruction
+                ;; currently we're dynamically calling individual instructions
+                ;; based on mnemonic name (and using if/then conditioning for
+                ;; different modes), because I suspect it might be faster,
+                ;; however, if it turns out to be more practical to have one
+                ;; big function and put the mnemonics in if/then blocks too,
+                ;; we can always switch to that later.
                 nes.cpu.mnemonic. [ $+ [ %mnemonic ] ] %length %mode %operand
 
                 ;; if we get a return value, put it in %result, else keep it empty.
+                ;; i feel so silly for not knowing there was a way to get return
+                ;; values without calling aliases as an $identifier. oh well!
                 var %result $result
 
                 ;; show pretty output
@@ -286,7 +294,6 @@ alias nes.cpu.loop {
         }
 
         ;; if something goes wrong, halt the cpu emulation
-
         return
         :error
         nes.cpu.stop
@@ -368,8 +375,11 @@ alias nes.cpu.debug {
                 ;; calculate n prettify execution time
                 var %ticks 96 $+ $calc($ticks - %ticks) $+ 94ms.
 
+                ;; prettify the status flag display
+                var %flags $replace($nes.cpu.statusFlags, 0, $+(30,0), 1, $+(66,1))
+
                 ; the big line that put da stuff on screen~
-                echo -s %pc 93: %opcode $padString(5, %operand) 93-> %mnemonic $padString(8, %result) $padString(12, $+(94,%mode)) %ticks
+                echo -s %pc 93: %opcode $padString(5, %operand) 93-> %mnemonic $padString(7, %result) $padString(11, $+(94,%mode)) $padString(10, %flags) %ticks
         }
 
         else {
@@ -377,6 +387,24 @@ alias nes.cpu.debug {
                 ;; print a warning if we encounter an unimplemented opcode
                 echo -s %pc 93: 54,52 $+ /!\ 66,28 $+ $+($chr(160),%mnemonic,$chr(160))
         }
+}
+
+;; get 6502 status flags as a single byte, represented in binary
+alias nes.cpu.statusFlags {
+
+        ;; from most to least significant (byte 7 - 0)
+        var %N $hget(nes.cpu, status.negative)
+        var %V $hget(nes.cpu, status.overflow)
+
+        ;; bytes 5 and 4 are not used and always 0
+
+        var %D $hget(nes.cpu, status.decimal)
+        var %I $hget(nes.cpu, status.interrupt)
+        var %Z $hget(nes.cpu, status.zero)
+        var %C $hget(nes.cpu, status.carry)
+
+        ;; merge 'em all together and return the result!
+        return $+(%N,%V,00,%D,%I,%Z,%C)
 }
 
 ;; pad $2- up to $1 characters, using $chr(160) ((unicode space))
