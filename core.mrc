@@ -8,11 +8,6 @@ alias nes.init {
         echo -s All rights and/or wrongs reserved.
         echo -s -------------------------------------
 
-        ;; load and init opcode script (:
-
-        .load -rs $scriptdir $+ ops.mrc
-        nes.cpu.generateOpcodeTable
-
         ;; create hash table for global storage
 
         if ($hget(nes.data) != $null) {
@@ -21,6 +16,13 @@ alias nes.init {
         }
 
         hmake nes.data 10
+
+        ;; load other scripts
+        .load -rs $scriptdir $+ ops.mrc
+        .load -rs $scriptdir $+ ppu.mrc
+
+        ;; generate the opcode table
+        nes.cpu.generateOpcodeTable
 
         ;; temporary hardcoded ROM path.
         var %ROMdir $scriptdir $+ ROMs
@@ -148,6 +150,9 @@ alias nes.init {
 
                 bset &RAM $calc(64 * 1024) 0
 
+                ;; initialise the PPU
+                nes.ppu.init
+
                 if (%mapperValue == 0) {
 
                         ;; mapper 000 maps ROM starting at $8000,
@@ -165,8 +170,6 @@ alias nes.init {
                 var %ROMstart $hget(nes.data, rom.start)
 
                 echo -s PRG ROM is mapped to %ROMstart - $hex($calc($dec(%ROMstart) + ((%PRGROMsize * 16) * 1024) - 1))
-
-
                 echo -s -------------------------------------
 
                 ;; create table for 6502 registers and state, and set initial values
@@ -222,6 +225,9 @@ alias nes.init {
                 hadd nes.cpu x           0
                 hadd nes.cpu y           0
 
+                ;; print debug header
+                debugHeader
+
                 ;; start main cpu loop
                 .timernes.cpu.loop -mh 0 0 nes.cpu.loop
         }
@@ -233,10 +239,7 @@ alias nes.init {
         }
 }
 
-alias nes.system {
-
-}
-
+;; da main loop!
 alias nes.cpu.loop {
 
         ;; profiling start
@@ -245,8 +248,12 @@ alias nes.cpu.loop {
         ;; make RAM available as binvar
         noop $hget(nes.cpu, ram, &RAM)
 
-        ;; increment the current program counter, and assign it to %pc
+        ;; increment the current program counter
         hinc nes.cpu programCounter
+
+        ;; assign it to %pc, this is only for debug output,
+        ;; since it will be manipulated in the meantime.
+        var %pc $hget(nes.cpu, programCounter)
 
         ;; get opcode byte (in hex) at program counter's address
         var %opcode $hex($bvar(&RAM, $hget(nes.cpu, programCounter)))
@@ -283,7 +290,7 @@ alias nes.cpu.loop {
                 var %result $result
 
                 ;; show pretty output
-                nes.cpu.debug $hget(nes.cpu, programCounter) %opcode %length %mode %mnemonic %operand %result %ticks
+                nes.cpu.debug %pc %opcode %length %mode %mnemonic %operand %result %ticks
         }
 
         else {
@@ -344,9 +351,9 @@ alias nes.cpu.debug {
 
                         var %ticks $8
 
-                        ;; this is an address
+                        ;; this is an address. for display purposes, swap them bytes again.
                         var %operand $+(57,$base($6, 10, 16, 2)) $+(69,$base($7, 10, 16, 2))
-                        var %result $+(50$,74,$base($+($hex($6),$hex($7)), 16, 16, 4))
+                        var %result $+(50$,74,$+($hex($7),$hex($6)))
                 }
 
                 elseif (%mode == relative) {
@@ -378,15 +385,23 @@ alias nes.cpu.debug {
                 ;; prettify the status flag display
                 var %flags $replace($nes.cpu.statusFlags, 0, $+(30,0), 1, $+(66,1))
 
+                var %regs 85 $padString(2, $hex($hget(nes.cpu, accumulator))) $padString(2, $hex($hget(nes.cpu, x))) $padString(2, $hex($hget(nes.cpu, y)))
+
                 ; the big line that put da stuff on screen~
-                echo -s %pc 93: %opcode $padString(5, %operand) 93-> %mnemonic $padString(7, %result) $padString(11, $+(94,%mode)) $padString(10, %flags) %ticks
+                echo -s %pc 93: %opcode $padString(5, %operand) 93-> %mnemonic $padString(6, %result) $padString(10, %regs) $padString(11, $+(94,%mode)) $padString(10, %flags) %ticks
         }
 
         else {
+                debugHeader
 
                 ;; print a warning if we encounter an unimplemented opcode
-                echo -s %pc 93: 54,52 $+ /!\ 66,28 $+ $+($chr(160),%mnemonic,$chr(160))
+                echo -s %pc 93: %opcode $padString(5, %operand) 93-> 54,52 $+ /!\ 66,28 $+ $+($chr(160),unimplemented instruction,$chr(160))
         }
+}
+
+alias -l debugHeader {
+
+        echo -s 95pc91------95op91-95oprnd91----95mnm91-95result91--95A91--95X91--95Y91----95mode91--------95NVssDIZC91---95time
 }
 
 ;; get 6502 status flags as a single byte, represented in binary
@@ -504,5 +519,5 @@ alias -l dec {
 ;; explicit decimal -> hex conversion
 alias -l hex {
 
-        return $base($1, 10, 16)
+        return $base($1, 10, 16, 2)
 }
