@@ -9,3 +9,7 @@ A9 LDA 2 immediate
 AD LDA 3 absolute
 D8 CLD 1 implicit
 F0 BEQ 2 relative
+91 STA 2 indirect,y
+88 DEY 1 implied
+D0 BNE 2 relative
+C6 DEC 2 zeropage

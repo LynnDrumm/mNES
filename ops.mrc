@@ -34,14 +34,14 @@ alias nes.cpu.mnemonic.lda {
                 var %result $nes.ram.read($mergeBytes(%operand))
         }
 
+        ;; store result in accumulator
+        hadd nes.cpu accumulator %result
+
         ;; set negative flag is bit 7 is set
         hadd nes.cpu status.negative $getBit(%result, 7)
 
         ;; set zero flag if operand is #$00
-        hadd nes.cpu status.zero $iif(%operand == 0, 1, 0)
-
-        ;; store result in accumulator
-        hadd nes.cpu accumulator %result
+        hadd nes.cpu status.zero $iif(%result == 0, 1, 0)
 }
 
 ;; store accumulator
@@ -56,7 +56,14 @@ alias nes.cpu.mnemonic.sta {
                 var %address $mergeBytes(%operand)
         }
 
+        elseif (%mode == indirect,y) {
+
+                var %address $calc($nes.ram.read(%operand) + $hget(nes.cpu, y))
+        }
+
         nes.ram.write %address $hget(nes.cpu, accumulator)
+
+        return %address
 }
 
 ;; LoaD X index with memory
@@ -71,15 +78,15 @@ alias nes.cpu.mnemonic.ldx {
                 var %result %operand
         }
 
-        ;; set negative flag equal to the 7th bit,
-        ;; i assume of the operand?
-        hadd nes.cpu status.negative $getBit(%operand, 7)
-
-        ;; set zero flag if operand is #$00, else clear it.
-        hadd nes.cpu status.zero $iif(%operand == 0, 1, 0)
-
         ;; set x register to result
         hadd nes.cpu x %result
+
+        ;; set negative flag equal to the 7th bit,
+        ;; i assume of the operand?
+        hadd nes.cpu status.negative $getBit(%result, 7)
+
+        ;; set zero flag if operand is #$00, else clear it.
+        hadd nes.cpu status.zero $iif(%result == 0, 1, 0)
 }
 
 ;;Transfer X to Stack
@@ -113,14 +120,14 @@ alias nes.cpu.mnemonic.ldy {
                 var %result %operand
         }
 
-        ;; clear negative flag if operand is #$00 - #$7F, else set it.
-        hadd nes.cpu status.negative $iif(%operand <= 127, 0, 1)
-
-        ;; set zero flag if operand is #$00
-        hadd nes.cpu status.zero $iif(%operand == 0, 1, 0)
-
         ;; set y register to result
         hadd nes.cpu y %result
+
+        ; clear negative flag if operand is #$00 - #$7F, else set it.
+        hadd nes.cpu status.negative $iif(%result <= 127, 0, 1)
+
+        ;; set zero flag if operand is #$00
+        hadd nes.cpu status.zero $iif(%result == 0, 1, 0)
 }
 
 alias nes.cpu.mnemonic.sty {
@@ -138,6 +145,25 @@ alias nes.cpu.mnemonic.sty {
 
         ;; store the value of y at the given address.
         nes.ram.write %address $hget(nes.cpu, y)
+}
+
+alias nes.cpu.mnemonic.dey {
+
+        ;; mode is always implied
+
+        ;; decrement y register
+        hdec nes.cpu y
+
+        if ($hget(nes.cpu, y) < 0) {
+
+                hadd nes.cpu y $dec(ff)
+        }
+
+        ;; set negative flag if bit 7 is set
+        hadd nes.cpu status.negative $getBit($hget(nes.cpu, y), 7)
+
+        ;; set zero flag if operand is #$00
+        hadd nes.cpu status.zero $iif($hget(nes.cpu, y) == 0, 1, 0)
 }
 
 ;; Logical AND memory with accumulator
@@ -160,9 +186,7 @@ alias nes.cpu.mnemonic.and {
 
                 while (%i < 8) {
 
-                        var %a $getBit(%operand, %i)
-                        var %b $getBit(%accumulator, %i)
-                        var %and $and(%a, %b)
+                        var %and $and($getBit(%operand, %i), $getBit(%accumulator, %i))
 
                         ;echo -s > %a AND %b = %and
 
@@ -180,15 +204,15 @@ alias nes.cpu.mnemonic.and {
                 var %result $dec(%result).bin
         }
 
+        ;; push the result to the accumulator
+        hadd nes.cpu accumulator %result
+
         ;; set negative flag equal to the 7th bit.
         ;; of the operand, or the result?
         hadd nes.cpu status.negative $getBit(%result, 7)
 
         ;; set zero flag if operand is #$00, else clear it.
         hadd nes.cpu status.zero $iif(%result == 0, 1, 0)
-
-        ;; push the result to the accumulator
-        hadd nes.cpu accumulator %result
 }
 
 alias nes.cpu.mnemonic.beq {
@@ -210,7 +234,7 @@ alias nes.cpu.mnemonic.beq {
         ;; by setting %sign to either - or + depending on the result,
         ;; which we can then just feed into $calc(), which will
         ;; happily be interpreted as the correct mathmetical operator.
-        var %sign $iif($getBit(%operand) == 1, -, +)
+        var %sign $iif($getBit(%operand, 7) == 1, -, +)
 
         ;; two's complement
         ;; we'll make the value binary
@@ -237,6 +261,60 @@ alias nes.cpu.mnemonic.beq {
         ;; be set to as soon as the CPU loop restarts
         return $calc(%result + 1)
 }
+
+alias nes.cpu.mnemonic.bne {
+
+        ;; most of this is like `beq` above.
+
+        ;; mode is always relative
+        var %operand $3
+
+        ;; get sign to determine branching forward or backward
+        var %sign $iif($getBit(%operand, 7) == 1, -, +)
+
+        ;; two's complement, condensed!
+        var %value $calc($dec($invert($bin(%operand))).bin + 1)
+
+        ;; interpreter abuse, as above
+        var %result $calc($hget(nes.cpu, programCounter) %sign %value)
+
+        if ($hget(nes.cpu, status.zero) == 0) {
+
+                hadd nes.cpu programCounter %result
+        }
+
+        return $calc(%result + 1)
+}
+
+alias nes.cpu.mnemonic.dec {
+
+        var %mode       $2
+        var %operand    $3
+
+        if (%mode == zeropage) {
+
+                var %address %operand
+
+                var %value $calc($nes.ram.read(%address) - 1)
+
+                if (%value < 0) {
+
+                        var %value $dec(ff)
+                }
+
+                nes.ram.write %address %value
+
+                ;; set negative flag equal to the 7th bit.
+                ;; of the operand, or the result?
+                hadd nes.cpu status.negative $getBit(%value, 7)
+
+                ;; set zero flag if operand is #$00, else clear it.
+                hadd nes.cpu status.zero $iif(%value == 0, 1, 0)
+        }
+
+        return %value
+}
+
 
 ;; -----------------------------------------------------------------------------------------------------------------------------------
 

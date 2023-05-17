@@ -2,11 +2,14 @@
 
 alias nes.init {
 
-        echo -s -------------------------------------
-        echo -s mNES v0.3
-        echo -s (c) Lynn Drumm 2023
-        echo -s All rights and/or wrongs reserved.
-        echo -s -------------------------------------
+        echo @nes.debug -------------------------------------
+        echo @nes.debug mNES v0.3
+        echo @nes.debug (c) Lynn Drumm 2023
+        echo @nes.debug All rights and/or wrongs reserved.
+        echo @nes.debug -------------------------------------
+
+        ;; open our own window
+        window -e @nes.debug
 
         ;; create hash table for global storage
 
@@ -40,7 +43,7 @@ alias nes.init {
 
         ;; i should probably move this into it's own function
 
-        echo -s reading header bytes:
+        echo @nes.debug reading header bytes:
 
         ;; first 4 bytes should spell NES in ASCII, + DOS "end-of-file" ($4E, $45, $53, $1A)
         ;; also, remember, mIRC does 1-indexing. so we gotta offset *everything*
@@ -49,17 +52,17 @@ alias nes.init {
         var %headerValue $nes.baseConvertRange($bvar(&header, 1, 4))
         var %headerConst 4E 45 53 1A
 
-        echo -s %headerValue
-        echo -s %headerConst
+        echo @nes.debug %headerValue
+        echo @nes.debug %headerConst
 
         if (%headerValue == %headerConst) {
 
-                echo -s first 4 bytes match! ^-^
-                ;echo -s $qt($nopath(%nes.ROM)) is probably a NES ROM file!
+                echo @nes.debug first 4 bytes match! ^-^
+                ;echo @nes.debug $qt($nopath(%nes.ROM)) is probably a NES ROM file!
 
                 ;; load ROM as binvar, skipping the first 16 bytes of the header.
                 var %ROMsize $calc($file(%nes.ROM).size - 16)
-                echo -s ROM size: $bytes(%ROMsize,k).suf $+ , %ROMsize bytes
+                echo @nes.debug ROM size: $bytes(%ROMsize,k).suf $+ , %ROMsize bytes
                 bread $qt(%nes.ROM) 16 %ROMsize &ROM
 
                 ;; add the ROM (with header stripped) to the data table.
@@ -69,20 +72,20 @@ alias nes.init {
 
                 ;; 4th byte (or 5th if starting from 1) contains ROM size in 16k chunks
                 var %PRGROMsize $bvar(&header, 5, 1)
-                echo -s PRG ROM size: %PRGROMsize * 16k chunks = $calc(%PRGROMsize * 16) $+ k, $calc((%PRGROMsize * 16) * 1024) bytes.
+                echo @nes.debug PRG ROM size: %PRGROMsize * 16k chunks = $calc(%PRGROMsize * 16) $+ k, $calc((%PRGROMsize * 16) * 1024) bytes.
 
                 ;; 5th (6th) byte, CHR ROM size in 8k chunks. 0 means the board uses CHR RAM instead
                 var %CHRROMsize $bvar(&header, 6, 1)
 
                 if (%CHRROMsize > 0) {
 
-                        echo -s CHR ROM size: %CHRROMsize * 8k chunks = $calc(%CHRROMsize * 8) $+ k, $calc((%PRGROMsize * 8) * 1024) bytes.
+                        echo @nes.debug CHR ROM size: %CHRROMsize * 8k chunks = $calc(%CHRROMsize * 8) $+ k, $calc((%PRGROMsize * 8) * 1024) bytes.
                 }
 
                 else {
 
                         ;; what's CHR RAM? I don't know (yet).
-                        echo -s board uses CHR RAM (not ROM)
+                        echo @nes.debug board uses CHR RAM (not ROM)
                 }
 
                 ;; ------------------------------------------------------------------
@@ -91,15 +94,15 @@ alias nes.init {
 
                 ;; on 6502, you count bits from right to left. i don't know why.
                 var %flags6 $base($bvar(&header, 7, 1), 10, 2, 8)
-                ;echo -s byte 06: %flags6
+                ;echo @nes.debug byte 06: %flags6
 
                 ;; bit 0: mirroring -- 0 = horizontal mirroring, 1 vertical mirroring.
                 var %mirroring $mid(%flags6, 1, 8)
-                echo -s mirroring:11 $iif(%mirroring == 1, vertical, horizontal)
+                echo @nes.debug mirroring:11 $iif(%mirroring == 1, vertical, horizontal)
 
                 ;; bit 1: does the cartridge have a battery?
                 var %battery $mid(%flags6, 1, 7)
-                echo -s battery: $iif(%battery == 1, 09true, 04false)
+                echo @nes.debug battery: $iif(%battery == 1, 09true, 04false)
 
                 ;; bit 2: trainer present? what is a "trainer" in this context?
 
@@ -107,17 +110,17 @@ alias nes.init {
                 ;; which is not really relevant in the current year of our lord 2023,
                 ;; unless we're writing a super compatible emulator (we're not).
                 var %trainer $mid(%flags6, 1, 6)
-                echo -s trainer: $iif(%trainer == 1, 09true, 04false)
+                echo @nes.debug trainer: $iif(%trainer == 1, 09true, 04false)
 
                 ;; bit 3: ignore mirroring control or previous mirroring bit, and
                 ;; set 4 screen VRAM (what is this?)
                 var %ignoreMirror $mid(%flags6, 1, 5)
-                echo -s ignore mirroring: $iif(%ignoreMirror == 1, 09true, 04false)
+                echo @nes.debug ignore mirroring: $iif(%ignoreMirror == 1, 09true, 04false)
 
                 ;; the next 4 bits are the lower nybble of the mapper number (why????)
                 ;; just store 'em and combine them with the upper nybble later, i guess
                 var %mapperLowerNybble $left(%flags6, 4)
-                echo -s mapper lower nybble:11 %mapperLowerNybble
+                echo @nes.debug mapper lower nybble:11 %mapperLowerNybble
 
                 ;; ------------------------------------------------------------------
                 ;; 7th (8th) byte:
@@ -133,20 +136,20 @@ alias nes.init {
 
                 ;; the last 4 bits are the upper nybble of the mapper. lol.
                 var %mapperUpperNybble $left(%flags7, 4)
-                echo -s mapper upper nybble:11 %mapperUpperNybble
+                echo @nes.debug mapper upper nybble:11 %mapperUpperNybble
 
                 ;; combine the upper and lower nybbles.
                 ;; is upper the first 4 digits, or last?
                 var %mapperValue $+(%mapperUpperNybble,%mapperLowerNybble)
 
-                echo -s mapper value: Bin: %mapperValue Hex: $base(%mapperValue, 2, 16, 2) Dec: $base(%mapperValue, 2, 10, 2)
+                echo @nes.debug mapper value: Bin: %mapperValue Hex: $base(%mapperValue, 2, 16, 2) Dec: $base(%mapperValue, 2, 10, 2)
 
                 ;; mappers contain all sorts of weird and wonderful hardware
                 ;; they also define which address ROM is mapped to, etc
                 ;; i don't wanna think about that too much yet though...
 
                 ;; set up RAM. just fill it with zeroes.
-                echo -s setting up RAM
+                echo @nes.debug setting up RAM
 
                 bset &RAM $calc(64 * 1024) 0
 
@@ -169,8 +172,8 @@ alias nes.init {
 
                 var %ROMstart $hget(nes.data, rom.start)
 
-                echo -s PRG ROM is mapped to %ROMstart - $hex($calc($dec(%ROMstart) + ((%PRGROMsize * 16) * 1024) - 1))
-                echo -s -------------------------------------
+                echo @nes.debug PRG ROM is mapped to %ROMstart - $hex($calc($dec(%ROMstart) + ((%PRGROMsize * 16) * 1024) - 1))
+                echo @nes.debug -------------------------------------
 
                 ;; create table for 6502 registers and state, and set initial values
                 if ($hget(nes.cpu) != $null) {
@@ -225,7 +228,11 @@ alias nes.init {
                 hadd nes.cpu x           0
                 hadd nes.cpu y           0
 
+                ;; just counting single cycles for now
+                hadd nes.cpu cycles 0
+
                 ;; print debug header
+                debugHeader
                 debugHeader
 
                 ;; start main cpu loop
@@ -234,8 +241,8 @@ alias nes.init {
 
         else {
 
-                echo -s first 4 bytes do not match! x.x
-                echo -s $qt($nopath(%nes.ROM)) is probably not a NES ROM file?
+                echo @nes.debug first 4 bytes do not match! x.x
+                echo @nes.debug $qt($nopath(%nes.ROM)) is probably not a NES ROM file?
         }
 }
 
@@ -300,6 +307,9 @@ alias nes.cpu.loop {
                 nes.cpu.stop
         }
 
+        ;; just count single cycles for now
+        hinc nes.cpu cycles
+
         ;; if something goes wrong, halt the cpu emulation
         return
         :error
@@ -313,6 +323,7 @@ alias nes.cpu.loop {
 ;; so. let's re-think this, then?
 alias nes.cpu.debug {
 
+        var %cycles     $+(72,$padstring(4, $hget(nes.cpu, cycles)).pre)
         var %pc         $+(41$,65,$hex($1))
         var %opcode     $+(4468,$2)
         var %length     $3
@@ -349,7 +360,7 @@ alias nes.cpu.debug {
 
                 elseif (%mode == absolute) {
 
-                        var %ticks $8
+                        var %ticks $9
 
                         ;; this is an address. for display purposes, swap them bytes again.
                         var %operand $+(57,$base($6, 10, 16, 2)) $+(69,$base($7, 10, 16, 2))
@@ -379,6 +390,15 @@ alias nes.cpu.debug {
                         var %result $+(50$,74,$base($6, 10, 16, 2))
                 }
 
+                elseif (%mode == indirect,y) {
+
+                        var %ticks $8
+
+                        ;; this is an address. for display purposes, swap them bytes again.
+                        var %operand $+(57,$base($6, 10, 16, 2))
+                        var %result $+(50$,74,$base($7, 10, 16, 4))
+                }
+
                 ;; calculate n prettify execution time
                 var %ticks 96 $+ $calc($ticks - %ticks) $+ 94ms.
 
@@ -388,20 +408,19 @@ alias nes.cpu.debug {
                 var %regs 85 $padString(2, $hex($hget(nes.cpu, accumulator))) $padString(2, $hex($hget(nes.cpu, x))) $padString(2, $hex($hget(nes.cpu, y)))
 
                 ; the big line that put da stuff on screen~
-                echo -s %pc 93: %opcode $padString(5, %operand) 93-> %mnemonic $padString(6, %result) $padString(10, %regs) $padString(11, $+(94,%mode)) $padString(10, %flags) %ticks
+                iline @nes.debug $line(@nes.debug, -1) %cycles %pc 93: %opcode $padString(5, %operand) 93-> %mnemonic $padString(6, %result) $padString(10, %regs) $padString(11, $+(94,%mode)) $padString(10, %flags) %ticks
         }
 
         else {
-                debugHeader
 
                 ;; print a warning if we encounter an unimplemented opcode
-                echo -s %pc 93: %opcode $padString(5, %operand) 93-> 54,52 $+ /!\ 66,28 $+ $+($chr(160),unimplemented instruction,$chr(160))
+                echo @nes.debug %cycles %pc 93: %opcode $padString(5, %operand) 93-> 54,52 $+ /!\ 66,28 $+ $+($chr(160),unimplemented instruction,$chr(160))
         }
 }
 
 alias -l debugHeader {
 
-        echo -s 95pc91------95op91-95oprnd91----95mnm91-95result91--95A91--95X91--95Y91----95mode91--------95NVssDIZC91---95time
+        echo @nes.debug 91-95cyl91-95pc91------95op91-95oprnd91----95mnm91-95result91--95A91--95X91--95Y91----95mode91--------95NVssDIZC91---95time
 }
 
 ;; get 6502 status flags as a single byte, represented in binary
@@ -439,13 +458,13 @@ alias nes.cpu.stop {
 
                 .timernes.cpu.loop off
 
-                echo -s cpu loop stopped.
+                echo @nes.debug cpu loop stopped.
                 halt
         }
 
         else {
 
-                echo -s cpu is not running.
+                echo @nes.debug cpu is not running.
         }
 }
 
@@ -458,7 +477,7 @@ alias nes.cpu.generateOpcodeTable {
 
         hmake nes.cpu.opcode 256
 
-        echo -s >> generating opcode table...
+        echo @nes.debug >> generating opcode table...
 
         ;; file containing list of all ops
         var %file $scriptdir $+ ops.dat
@@ -470,12 +489,12 @@ alias nes.cpu.generateOpcodeTable {
         while (%i <= %t) {
 
                 var %entry $read(%file, %i)
-                echo -s adding $+(,$rand(76,87),$read(%file, %i))
+                echo @nes.debug adding $+(,$rand(76,87),$read(%file, %i))
                 hadd nes.cpu.opcode %entry
                 inc %i
         }
 
-        echo -s >> opcode table generated.
+        echo @nes.debug >> opcode table generated.
 }
 
 ;; this entire function might be a bit overkill since it's only used once, I think.
