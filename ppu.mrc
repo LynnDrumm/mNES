@@ -12,15 +12,15 @@ alias nes.ppu.init {
         ;; are "often set", and ignoring most of the rest.
 
         ;; PPU CTRL
-        nes.ram.write $dec(2000) $dec(00000000).bin
+        nes.mem.write $dec(2000) $dec(00000000).bin
 
         ;; PPU MASK
-        nes.ram.write $dec(2001) $dec(00000000).bin
+        nes.mem.write $dec(2001) $dec(00000000).bin
 
         ;; PPU STATUS
         ;; bits 5 and 7 are "often set", 6 is always 0,
         ;; the others are irrelevant. hardcoded for now.
-        nes.ram.write $dec(2002) $dec(10100000).bin
+        nes.mem.write $dec(2002) $dec(10100000).bin
 
         ;; everything else should just be 0, which
         ;; we already do, but we can specifically force
