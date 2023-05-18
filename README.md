@@ -5,12 +5,10 @@ NES emulator in mIRCscript
 
 this is a learning experience for me. Figuring things out as I go. I don't know what I'm doing, please keep that in mind if you read the source.
 
-only a small handful of opcodes are (probably poorly) emulated so far, don't expect anything to run (yet).
-
-don't judge me too harshly 🥺👉👈
+only a small handful of opcodes are (probably poorly) emulated so far, don't expect much to run (yet), but feel free to look around and give me feedback ^-^
 
 
-how to use:
+# how to use:
 
 put a folder named ROMs in the same directory as all the files, and put a valid NES rom there.
 currently, it just picks the first file it finds in there.
