@@ -8,3 +8,11 @@ this is a learning experience for me. Figuring things out as I go. I don't know 
 only a small handful of opcodes are (probably poorly) emulated so far, don't expect anything to run (yet).
 
 don't judge me too harshly 🥺👉👈
+
+
+how to use:
+
+put a folder named ROMs in the same directory as all the files, and put a valid NES rom there.
+currently, it just picks the first file it finds in there.
+
+then you can load the script(s) with /load -rs path\to\core.mrc, followed by /nes.init to run it.
