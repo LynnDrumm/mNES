@@ -342,6 +342,14 @@ alias nes.cpu.loop {
         ;; just count single cycles for now
         hinc nes.cpu cycles
 
+        ;; lmfao i didn't notice for DAYS that I was never actually writing &RAM out,
+        ;; so i was just loading in a fresh copy of it as set during init on
+        ;; every
+        ;; single
+        ;; cycle.
+        ;; ...anyway. fixed now >.>;
+        nes.mem.save RAM
+
         ;; if something goes wrong, halt the cpu emulation
         return
         :error
@@ -523,7 +531,8 @@ alias nes.cpu.debug {
 
                         var %regs 85 $padString(2, $hex($hget(nes.cpu, accumulator))) $padString(2, $hex($hget(nes.cpu, x))) $padString(2, $hex($hget(nes.cpu, y)))
 
-                        ; the big line that put da stuff on screen~
+                        ;; the big line that put da stuff on screen~
+                        ;; this is getting a bit unwieldy, lol
                         iline @nes.debug $line(@nes.debug, -1) %cycles %pc 93: %opcode $padString(5, %operand) 93-> $+(71,%mnemonic) $padString(6, %result) $padString(10, %regs) $padString(11, $+(94,%mode)) $padString(10, %flags) %ticks
                 }
         }

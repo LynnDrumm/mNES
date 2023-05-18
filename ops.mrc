@@ -17,6 +17,13 @@ alias nes.cpu.mnemonic.cld {
         hadd nes.cpu status.decimal 0
 }
 
+;; clear carry flag
+alias nes.cpu.mnemonic.clc {
+
+        ;; always implicit
+        hadd nes.cpu status.carry 0
+}
+
 ;; load accumulator
 alias nes.cpu.mnemonic.lda {
 
@@ -126,6 +133,21 @@ alias nes.cpu.mnemonic.txa {
         hadd nes.cpu status.zero $iif(%value == 0, 1, 0)
 }
 
+;; transfer accumulator to X
+alias nes.cpu.mnemonic.tax {
+
+        var %value $hget(nes.cpu, accumulator)
+
+        ;; write contents of accumulator to x
+        hadd nes.cpu x %value
+
+        ;; set negative flag if bit 7 of x is set
+        hadd nes.cpu status.negative $getBit(%value, 7)
+
+        ;; set zero flag if x is now 0
+        hadd nes.cpu status.zero $iif(%value == 0, 1, 0)
+}
+
 ;;Transfer X to Stack
 alias nes.cpu.mnemonic.txs {
 
@@ -227,36 +249,43 @@ alias nes.cpu.mnemonic.and {
         var %mode       $2
         var %operand    $3
 
+        var %accumulator $hget(nes.cpu, accumulator)
+
         if (%mode == immediate) {
 
-                ;; logical AND between operand and accumulator
-                ;; 6502.org says bit by bit, so... let's try that?
+                var %value %operand
 
-                var %i 0
-                var %accumulator $hget(nes.cpu, accumulator)
-
-                ;echo -s o: $bin(%operand)
-                ;echo -s a: $bin(%accumulator)
-
-                while (%i < 8) {
-
-                        var %and $and($getBit(%operand, %i), $getBit(%accumulator, %i))
-
-                        ;echo -s > %a AND %b = %and
-
-                        var %result $+(%and,%result)
-                        inc %i
-                }
-
-                ;; not entirely convinced the above does anything different
-                ;; than just straight using $and() on the operand/accu,
-                ;; so uncomment this line to double check in the future.
-                ;echo -s . %operand AND %accumulator = $and(%operand, %accumulator)
-
-                ;; convert result back to decimal
-                ;echo -s b: %result d: $dec(%result).bin h: $hex($dec(%result).bin)
-                var %result $dec(%result).bin
         }
+
+        elseif (%mode == zeropage) {
+
+                ;; get value from zeropage
+                var %value $nes.mem.read(%operand)
+        }
+
+        ;; logical AND between operand and accumulator
+        ;; 6502.org says bit by bit, so... let's try that?
+
+        var %i 0
+
+        while (%i < 8) {
+
+                var %and $and($getBit(%value, %i), $getBit(%accumulator, %i))
+
+                ;echo -s > %a AND %b = %and
+
+                var %result $+(%and,%result)
+                inc %i
+        }
+
+        ;; not entirely convinced the above does anything different
+        ;; than just straight using $and() on the operand/accu,
+        ;; so uncomment this line to double check in the future.
+        ;echo -s . %operand AND %accumulator = $and(%operand, %accumulator)
+
+        ;; convert result back to decimal
+        ;echo -s b: %result d: $dec(%result).bin h: $hex($dec(%result).bin)
+        var %result $dec(%result).bin
 
         ;; push the result to the accumulator
         hadd nes.cpu accumulator %result
@@ -286,6 +315,56 @@ alias nes.cpu.mnemonic.cmp {
         hadd nes.cpu status.zero     $iif(%accumulator == %value, 1, 0)
 
         ;; negative flag is set if the 7th bit of the result is set.
+        hadd nes.cpu status.negative $getBit(%result, 7)
+}
+
+alias nes.cpu.mnemonic.adc {
+
+        var %mode        $2
+        var %operand     $3-
+        var %accumulator $hget(nes.cpu, accumulator)
+
+        if (%mode == zeropage) {
+
+                var %value $nes.mem.read(%operand)
+        }
+
+        var %result $calc(%value + %accumulator)
+
+        ;; so eepy... i'll continue tomorrow 😴
+}
+
+;; logical shift right
+alias nes.cpu.mnemonic.lsr {
+
+        var %mode       $2
+        var %operand    $3-
+
+        ;; lowest bit is shifted into the carry flag,
+        ;; highest bit is set to 0
+
+        if (%mode == accumulator) {
+
+                var %value $bin($hget(nes.cpu, accumulator))
+        }
+
+        ;; get the bit to shift into the carry flag
+        var %carry $right($bin(%value), 1)
+
+        ;; get leftmost 7 bits (strip lowest bit),
+        ;; and stick 0 in front of it.
+        ;; yeaaaaaaaah
+        var %result $dec($+(0,$left(%value, 7))).bin
+
+        ;; i can't think of a better way to do this right now
+        if (%mode == accumulator) {
+
+                hadd nes.cpu accumulator %result
+        }
+
+        ;; set status flags
+        hadd nes.cpu status.carry    %carry
+        hadd nes.cpu status.zero     $iif(%result == 0, 1, 0)
         hadd nes.cpu status.negative $getBit(%result, 7)
 }
 
@@ -488,6 +567,7 @@ alias nes.cpu.mnemonic.dec {
 
 
 ;; gets the $2-th bit of the byte in $1
+;; ...talk shit...
 alias -l getBit {
 
         ;; since mIRC starts from 1 with most things, we'll add 1
