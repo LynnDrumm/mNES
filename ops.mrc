@@ -1,13 +1,8 @@
-;; maybe a general function for handling each mnemonic is better,
-;; with some ifs depending on the mode. hm.
-
 ;;set interrupt
 alias nes.cpu.mnemonic.sei {
 
         ;; SEI is always implict
         hadd nes.cpu status.interrupt 1
-
-        return
 }
 
 ;; clear decimal flag
@@ -87,8 +82,6 @@ alias nes.cpu.mnemonic.sta {
 
 ;; push accumulator to stack
 alias nes.cpu.mnemonic.pha {
-
-        ;; mode is always implicit
 
         nes.mem.stack push $hget(nes.cpu, accumulator)
 }
@@ -318,6 +311,7 @@ alias nes.cpu.mnemonic.cmp {
         hadd nes.cpu status.negative $getBit(%result, 7)
 }
 
+;; add with carry
 alias nes.cpu.mnemonic.adc {
 
         var %mode        $2
@@ -329,9 +323,52 @@ alias nes.cpu.mnemonic.adc {
                 var %value $nes.mem.read(%operand)
         }
 
-        var %result $calc(%value + %accumulator)
+        ;; i'm so incredibly grateful for everyone who has patiently
+        ;; helped me and explained stuff ❤ special shoutout to
+        ;; TheMogMiner for this one:
 
-        ;; so eepy... i'll continue tomorrow 😴
+        ;; add accumulator + value... plus the carry bit? somehow?
+        ;; ...maybe i don't understand just yet...
+        var %value      $calc(%value + $hget(nes.cpu, status.carry))
+        var %result     $calc(%accumulator + %value)
+
+        ;; if >255, loop around, and set the carry flag
+        if (%result > 255) {
+
+                ;; loop result around
+                var %result $calc(%result - 255)
+
+                ;; set carry flag
+                hadd nes.cpu status.carry 1
+        }
+
+        else {
+
+                ;; always gotta unset things if any condition
+                ;; that sets a flag isn't met.
+                hadd nes.cpu status.carry 0
+        }
+
+        ;; compare bit 7 of accu and value.
+        if ($getBit(%accumulator, 7) == $getBit(%value, 7)) {
+
+                ;; if identical, we check if bit 7 of the result is different
+                if ($getBit(%accumulator, 7) != $getBit(%result, 7)) {
+
+                        ;; set overflow flag if bit 7 of accu and result are different
+                        hadd nes.cpu status.overflow 1
+                }
+
+                else {
+
+                        hadd nes.cpu status.overflow 0
+                }
+        }
+
+        else {
+
+                hadd nes.cpu status.overflow 0
+        }
 }
 
 ;; logical shift right
@@ -366,6 +403,7 @@ alias nes.cpu.mnemonic.lsr {
         hadd nes.cpu status.carry    %carry
         hadd nes.cpu status.zero     $iif(%result == 0, 1, 0)
         hadd nes.cpu status.negative $getBit(%result, 7)
+
 }
 
 ;; branch if equal
@@ -551,22 +589,21 @@ alias nes.cpu.mnemonic.dec {
 
                 nes.mem.write %address %value
 
-                ;; set negative flag equal to the 7th bit.
-                ;; of the operand, or the result?
-                hadd nes.cpu status.negative $getBit(%value, 7)
+                ;; set negative flag equal to the 7th bit of the result
+                hadd nes.cpu status.negative $getBit(%result, 7)
 
-                ;; set zero flag if operand is #$00, else clear it.
-                hadd nes.cpu status.zero $iif(%value == 0, 1, 0)
+                ;; set zero flag if result is #$00, else clear it.
+                hadd nes.cpu status.zero $iif(%result == 0, 1, 0)
         }
 
         return %value
 }
 
-
 ;; -----------------------------------------------------------------------------------------------------------------------------------
 
 
 ;; gets the $2-th bit of the byte in $1
+
 ;; ...talk shit...
 alias -l getBit {
 

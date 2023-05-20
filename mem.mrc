@@ -81,9 +81,8 @@ alias nes.mem.stack {
 }
 
 ;; since stupid. fuckin. starting at 1.
-;; yeah. so. here's an alternative that does the extra
-;; math for us.
-;; assumes decimal input
+;; yeah. so. here's an alternative that does the extra math for us.
+;; assumes decimal input.
 alias nes.mem.write {
 
         bset &RAM $calc($1 + 1) $2
