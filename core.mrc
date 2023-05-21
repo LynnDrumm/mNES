@@ -533,7 +533,7 @@ alias nes.cpu.debug {
 
                         ;; the big line that put da stuff on screen~
                         ;; this is getting a bit unwieldy, lol
-                        iline @nes.debug $line(@nes.debug, -1) %cycles %pc 93: %opcode $padString(5, %operand) 93-> $+(71,%mnemonic) $padString(6, %result) $padString(10, %regs) $padString(11, $+(94,%mode)) $padString(10, %flags) %ticks
+                        iline @nes.debug $line(@nes.debug, -1) %cycles %pc 93: %opcode $padString(5, %operand) 93-> $+(71,%mnemonic) $padString(6, %result) $padString(10, %regs) $padString(11, $+(94,%mode)) $padString(10, %flags) %ticks stptr: $hget(nes.mem, stackPointer)
                 }
         }
 

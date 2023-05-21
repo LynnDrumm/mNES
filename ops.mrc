@@ -221,6 +221,23 @@ alias nes.cpu.mnemonic.dey {
         hadd nes.cpu status.zero $iif($hget(nes.cpu, y) == 0, 1, 0)
 }
 
+;; decrement x register
+alias nes.cpu.mnemonic.dex {
+
+        hdec nes.cpu x
+
+        if ($hget(nes.cpu, x) < 0) {
+
+                hadd nes.cpu x $dec(ff)
+        }
+
+        ;; set negative flag if bit 7 is set
+        hadd nes.cpu status.negative $getBit($hget(nes.cpu, x), 7)
+
+        ;; set zero flag if operand is #$00
+        hadd nes.cpu status.zero $iif($hget(nes.cpu, x) == 0, 1, 0)
+}
+
 ;; transfer y to accumulator
 alias nes.cpu.mnemonic.tya {
 
@@ -371,6 +388,30 @@ alias nes.cpu.mnemonic.adc {
         }
 }
 
+;; ROtate Right
+alias nes.cpu.mnemonic.ror {
+
+        var %mode $2
+
+        if (%mode == accumulator) {
+
+                var %value $hget(nes.cpu, accumulator)
+        }
+
+        ;; get bit 0
+        var %bit0 $getbit(%value, 0)
+
+        ;; get carry
+        var %carry $hget(nes.cpu, status.carry)
+
+        ;; result is all bits shifted 1 place right,
+        ;; bit 7 is set to current value of carry.
+        var %result $dec($+(%carry,$left(%value, 7))).bin
+
+        ;; set carry to previous value of bit 0
+        hadd nes.cpu status.carry %bit0
+}
+
 ;; logical shift right
 alias nes.cpu.mnemonic.lsr {
 
@@ -479,6 +520,28 @@ alias nes.cpu.mnemonic.bne {
         return $calc(%result + 1)
 }
 
+;; branch if carry set
+alias nes.cpu.mnemonic.bcs {
+
+        var %operand $3
+
+        ;; get sign to determine branching forward or backward
+        var %sign $iif($getBit(%operand, 7) == 1, -, +)
+
+        ;; two's complement, condensed!
+        var %value $calc($dec($invert($bin(%operand))).bin + 1)
+
+        ;; interpreter abuse, as above
+        var %result $calc($hget(nes.cpu, programCounter) %sign %value)
+
+        if ($hget(nes.cpu, status.carry) == 1) {
+
+                hadd nes.cpu programCounter %result
+        }
+
+        return $calc(%result + 1)
+}
+
 ;; branch if positive
 alias nes.cpu.mnemonic.bpl {
 
@@ -519,6 +582,7 @@ alias nes.cpu.mnemonic.jmp {
         return %address
 }
 
+;; Jump to SubRoutine
 alias nes.cpu.mnemonic.jsr {
 
         ;; mode is always absolute
@@ -538,12 +602,19 @@ alias nes.cpu.mnemonic.jsr {
         ;; ...thanks for listening, sometimes you just gotta talk through
         ;; a problem to figure it out ^-^
 
-        var %returnAddress $calc($hget(nes.cpu, programCounter) - 1)
+        var %returnAddress $base($calc($hget(nes.cpu, programCounter) - 1), 10, 16, 4)
 
-        ;; now we push this to the stack. i think i'll just let my stack functions
-        ;; handle 16-bit values, saves me the trouble of fixing things in multiple
-        ;; places later on when I fuck up the byte order or something.
-        nes.mem.stack push %returnAddress
+        echo -s . jsr return: %returnAddress
+
+        ;; split into upper / lower byte
+        var %upper $dec($left(%returnAddress, 2))
+        var %lower $dec($right(%returnAddress, 2))
+
+        ;; now we push this to the stack.
+        ;echo -s . nes.mem.stack push %upper
+        nes.mem.stack push %upper
+        ;echo -s . nes.mem.stack push %upper
+        nes.mem.stack push %lower
 
         ;; and now we set the program counter to our target address!
         ;; we do gotta subtract 1 tho. stubid off by one errors...
@@ -552,24 +623,68 @@ alias nes.cpu.mnemonic.jsr {
         return %address
 }
 
+;; ReTurn from Subroutine
+alias nes.cpu.mnemonic.rts {
+
+        ;; get topmost 2 values from the stack, that is the return address.
+        ;; i love how incredibly cursed this is. if you performed an odd
+        ;; number of push/pop operations in between a jsr and rts, you have
+        ;; essentially modified the return address, which means you could
+        ;; theoretically abuse this to jump anywhere in memory.
+        ;; ...why you would do that over just a plain jmp, i don't know.
+        var %lower $hex($nes.mem.stack(pop))
+        var %upper $hex($nes.mem.stack(pop))
+        var %returnAddress $dec($+(%upper,%lower))
+
+
+        hadd nes.cpu programCounter %returnAddress
+}
+
 alias nes.cpu.mnemonic.brk {
 
         ;; mode is always implicit
 
         ;; push program counter onto the stack
-        nes.mem.stack push $hget(nes.cpu, programCounter)
+        ;nes.mem.stack push $hget(nes.cpu, programCounter)
 
         ;; push processor status onto the stack...
-        nes.mem.stack push $dec($nes.cpu.statusFlags).bin
+        ;nes.mem.stack push $dec($nes.cpu.statusFlags).bin
 
         ;; get IRQ interrupt vector at $FFFE-$FFFF
-        var %lower $hex($nes.mem.read($dec(FFFE)))
-        var %upper $hex($nes.mem.read($dec(FFFF)))
-        var %address $+(%upper,%lower)
+        ;var %lower $hex($nes.mem.read($dec(FFFE)))
+        ;var %upper $hex($nes.mem.read($dec(FFFF)))
+        ;var %address $+(%upper,%lower)
 
-        hadd nes.cpu programCounter $dec(%address)
+        ;hadd nes.cpu programCounter $dec(%address)
 
         hadd nes.cpu status.break 1
+}
+
+alias nes.cpu.mnemonic.inc {
+
+        var %mode       $2
+        var %operand    $3
+
+        if (%mode == zeropage) {
+
+                var %address %operand
+                var %result     $calc($nes.mem.read(%address) + 1)
+
+                if (%result > 255) {
+
+                        var %result 0
+                }
+
+                nes.mem.write %address %result
+        }
+
+        ;; set negative flag equal to the 7th bit of the result
+        hadd nes.cpu status.negative $getBit(%result, 7)
+
+        ;; set zero flag if result is #$00, else clear it.
+        hadd nes.cpu status.zero $iif(%result == 0, 1, 0)
+
+        return %result
 }
 
 alias nes.cpu.mnemonic.dec {
@@ -580,23 +695,23 @@ alias nes.cpu.mnemonic.dec {
         if (%mode == zeropage) {
 
                 var %address    %operand
-                var %value      $calc($nes.mem.read(%address) - 1)
+                var %result     $calc($nes.mem.read(%address) - 1)
 
-                if (%value < 0) {
+                if (%result < 0) {
 
-                        var %value $dec(ff)
+                        var %result 255
                 }
 
-                nes.mem.write %address %value
-
-                ;; set negative flag equal to the 7th bit of the result
-                hadd nes.cpu status.negative $getBit(%result, 7)
-
-                ;; set zero flag if result is #$00, else clear it.
-                hadd nes.cpu status.zero $iif(%result == 0, 1, 0)
+                nes.mem.write %address %result
         }
 
-        return %value
+        ;; set negative flag equal to the 7th bit of the result
+        hadd nes.cpu status.negative $getBit(%result, 7)
+
+        ;; set zero flag if result is #$00, else clear it.
+        hadd nes.cpu status.zero $iif(%result == 0, 1, 0)
+
+        return %result
 }
 
 ;; -----------------------------------------------------------------------------------------------------------------------------------
