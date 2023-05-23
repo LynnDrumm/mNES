@@ -1,7 +1,5 @@
 ;; okay, let's write a stack handler now!! :3
 
-;; add something to the stack
-
 ;; complete rewrite
 alias nes.mem.stack {
 
@@ -48,6 +46,8 @@ alias nes.mem.stack {
                 ;; decrease stack pointer
                 hdec nes.mem stackPointer
         }
+
+        echo -s . $time : stack $1 -> $base(%value, 10, 16)
 
         return %value
 }

@@ -268,11 +268,7 @@ alias nes.init {
                 }
 
                 ;; start main cpu loop
-                .timernes.cpu.loop -mh 0 0 nes.cpu.loop
-
-                ;; start instructions-per-second timer
-                hadd nes.cpu ips.last 0
-                .timernes.ips.loop -mh 0 1000 nes.ips.calc
+                nes.cpu.start
         }
 
         else {
@@ -288,8 +284,9 @@ alias nes.ips.calc {
         var %last $hget(nes.cpu, ips.last)
         var %current $hget(nes.cpu, cycles)
 
-        echo -s ips: $calc(%current - %last)
+        ;echo -s ips: $calc(%current - %last)
 
+        hadd nes.cpu ips $calc(%current - %last)
         hadd nes.cpu ips.last %current
 }
 
@@ -374,6 +371,18 @@ alias nes.cpu.loop {
         nes.cpu.stop
 }
 
+;; resumes CPU from last stop point. $1 is optional timer interval
+alias nes.cpu.start {
+
+        iline @nes.debug $line(@nes.debug, -1) resuming cpu
+
+        .timernes.cpu.loop -mh 0 $iif($1, $1, 0) nes.cpu.loop
+
+        ;; start instructions-per-second timer
+        hadd nes.cpu ips.last 0
+        .timernes.ips.loop -mh 0 1000 nes.ips.calc
+}
+
 alias nes.cpu.stop {
 
         if ($timer(nes.cpu.loop) != $null) {
@@ -381,13 +390,13 @@ alias nes.cpu.stop {
                 .timernes.cpu.loop off
                 .timernes.ips.loop off
 
-                echo @nes.debug cpu loop stopped.
+                iline @nes.debug $line(@nes.debug, -1) cpu loop stopped.
                 halt
         }
 
         else {
 
-                echo @nes.debug cpu is not running.
+                iline @nes.debug $line(@nes.debug, -1) cpu is not running.
         }
 }
 
@@ -539,11 +548,11 @@ alias nes.cpu.debug {
 
                                 ;; this is an address. for display purposes, swap them bytes again.
                                 var %operand $+(57,$base($6, 10, 16, 2))
-                                var %result $+(50$,74,$base($7, 10, 16, 4))
+                                var %result $+(50$,74,$base($7, 10, 16, 4),50,$chr(44),74,$hex($hget(nes.cpu, y)))
                         }
 
                         ;; calculate n prettify execution time
-                        var %ticks $+(96,$calc($ticksqpc - $hget(nes.cpu, ticks.instruction)),94ms) 92/ $+(96,$calc($ticksqpc - $hget(nes.cpu, ticks.start)),94ms)
+                        var %ticks $+(96,$calc($ticksqpc - $hget(nes.cpu, ticks.instruction)),94ms) 91/ $+(96,$calc($ticksqpc - $hget(nes.cpu, ticks.start)),94ms91,$chr(44),96) $hget(nes.cpu, ips) 94ips
 
                         ;; prettify the status flag display
                         var %flags $replace($nes.cpu.statusFlags, 0, $+(30,0), 1, $+(66,1))
@@ -552,7 +561,7 @@ alias nes.cpu.debug {
 
                         ;; the big line that put da stuff on screen~
                         ;; this is getting a bit unwieldy, lol
-                        iline @nes.debug $line(@nes.debug, -1) %cycles %pc 93: %opcode $padString(5, %operand) 93-> $+(71,%mnemonic) $padString(6, %result) $padString(10, %regs) $padString(11, $+(94,%mode)) $padString(10, %flags) %ticks
+                        iline @nes.debug $line(@nes.debug, -1) %cycles %pc 93: %opcode $padString(5, %operand) 93-> $+(71,%mnemonic) $padString(8, %result) $padString(10, %regs) $padString(11, $+(94,%mode)) $padString(10, %flags) %ticks
                         ;echo @nes.debug %cycles %pc 93: %opcode $padString(5, %operand) 93-> $+(71,%mnemonic) $padString(6, %result) $padString(10, %regs) $padString(11, $+(94,%mode)) $padString(10, %flags) %ticks
                 }
         }
@@ -566,7 +575,7 @@ alias nes.cpu.debug {
 
 alias -l debugHeader {
 
-        echo @nes.debug 91---95cyl91-95pc91------95op91-95oprnd91----95mnm91-95result91--95A91--95X91--95Y91----95mode91--------95NVssDIZC91---95exec91--95real91-----
+        echo @nes.debug 91---95cyl91-95pc91------95op91-95oprnd91----95mnm91-95result91----95A91--95X91--95Y91----95mode91--------95NVssDIZC91---95exec91--95real91------------
 }
 
 ;; pad $2- up to $1 characters, using $chr(160) ((unicode space))

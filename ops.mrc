@@ -173,7 +173,7 @@ alias nes.cpu.mnemonic.ldy {
         hadd nes.cpu y %result
 
         ; clear negative flag if operand is #$00 - #$7F, else set it.
-        hadd nes.cpu status.negative $iif(%result <= 127, 0, 1)
+        hadd nes.cpu status.negative $getBit(%value, 7)
 
         ;; set zero flag if operand is #$00
         hadd nes.cpu status.zero $iif(%result == 0, 1, 0)
@@ -204,11 +204,9 @@ alias nes.cpu.mnemonic.sty {
 ;; decrement y register
 alias nes.cpu.mnemonic.dey {
 
-        ;; mode is always implied
-
-        ;; decrement y register
         hdec nes.cpu y
 
+        ;; if y is now less than 0, roll back over to $ff
         if ($hget(nes.cpu, y) < 0) {
 
                 hadd nes.cpu y $dec(ff)
@@ -514,10 +512,12 @@ alias nes.cpu.mnemonic.bne {
 
         if ($hget(nes.cpu, status.zero) == 0) {
 
+                ;iline @nes.debug $line(@nes.debug, -1) ------- branch ------------------------------
+
                 hadd nes.cpu programCounter %result
         }
 
-        return $calc(%result + 1)
+        return %result
 }
 
 ;; branch if carry set
