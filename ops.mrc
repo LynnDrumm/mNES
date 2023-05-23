@@ -636,7 +636,6 @@ alias nes.cpu.mnemonic.rts {
         var %upper $hex($nes.mem.stack(pop))
         var %returnAddress $dec($+(%upper,%lower))
 
-
         hadd nes.cpu programCounter %returnAddress
 }
 

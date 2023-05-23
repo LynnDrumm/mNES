@@ -329,7 +329,10 @@ alias nes.cpu.loop {
                 var %result $result
 
                 ;; show pretty output
-                nes.cpu.debug %pc %opcode %length %mode %mnemonic %operand %result %ticks
+                if (1 // $hget(nes.cpu, cycles)) {
+
+                        nes.cpu.debug %pc %opcode %length %mode %mnemonic %operand %result %ticks
+                }
         }
 
         else {
@@ -533,7 +536,8 @@ alias nes.cpu.debug {
 
                         ;; the big line that put da stuff on screen~
                         ;; this is getting a bit unwieldy, lol
-                        iline @nes.debug $line(@nes.debug, -1) %cycles %pc 93: %opcode $padString(5, %operand) 93-> $+(71,%mnemonic) $padString(6, %result) $padString(10, %regs) $padString(11, $+(94,%mode)) $padString(10, %flags) %ticks stptr: $hget(nes.mem, stackPointer)
+                        iline @nes.debug $line(@nes.debug, -1) %cycles %pc 93: %opcode $padString(5, %operand) 93-> $+(71,%mnemonic) $padString(6, %result) $padString(10, %regs) $padString(11, $+(94,%mode)) $padString(10, %flags) %ticks
+                        ;echo @nes.debug %cycles %pc 93: %opcode $padString(5, %operand) 93-> $+(71,%mnemonic) $padString(6, %result) $padString(10, %regs) $padString(11, $+(94,%mode)) $padString(10, %flags) %ticks
                 }
         }
 

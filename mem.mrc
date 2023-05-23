@@ -2,61 +2,52 @@
 
 ;; add something to the stack
 
-;; i got SO many things backwards here in several different ways at the same time
+;; complete rewrite
 alias nes.mem.stack {
 
-        ;; stack is 256 bytes from $0100 - $01FF.
-        ;; it starts at $01FF and is filled from there, backwards.
+        ;; stack starts at $01FF and decreases down to $0100
+        var %startAddress $base(01FF, 16, 10)
 
-        ;; address is start of stack minus offset (pointer).
-        ;; this is always where we start any stack operations,
-        ;; as it's organised first in, last out.
-        ;; you wouldn't remove a block from the middle of a block tower,
-        ;; ...would you?
+        ;; calculate the current stack address.
+        ;; start - pointer
+        var %stackAddress $calc(%startAddress - $hget(nes.mem, stackPointer))
 
-        ;; ok, for some reason every time we pop, we're off by 1.
-        ;; i've been staring at this for over an hour now and i can't make
-        ;; any sense of it. so, we're just going to do this the stupid way,
-        ;; tell me if you figure it out because i think i'm losing it
+        var %mode $1
 
-        var %baseAddress $base(01FF, 16, 10)
-        var %address $calc(%baseAddress - $hget(nes.mem, stackPointer))
+        if (%mode == push) {
 
-        ;; put something on the stack
-        if ($1 == push) {
-
-                ;; check if we haven't reached stack overflow yet.
-                ;; ...the programming concept, not the website,
-                ;; i'm afraid to go there.
+                ;; check if we haven't reached stack overflow yet
                 if ($hget(nes.mem, stackPointer) < 255) {
 
+                        ;; if pushing, there's a value.
                         var %value $2
 
-                        ;; write the value to the stack
-                        nes.mem.write %address %value
+                        ;; write value to the stack
+                        nes.mem.write %stackAddress %value
 
-                        ;; increase the stack pointer
+                        ;; increment the stack pointer
                         hinc nes.mem stackPointer
                 }
 
                 else {
 
-                        echo @nes.debug /!\ 66,28 $+ $+($chr(160),stack overflow,$chr(160))
+                        echo @nes.debug /!\66,28 $+ $+($chr(160),stack overflow,$chr(160),) $+(96,$calc($ticksqpc - $hget(nes.cpu, ticks.start)),94ms)
                         nes.cpu.stop
                 }
         }
 
-        ;; retrieve something from the stack
-        elseif ($1 == pop) {
+        elseif (%mode == pop) {
 
-                ;; read the topmost stack value
-                var %value $calc($nes.mem.read(%address) + 1)
+                ;; read value from the current stack address + 1
+                ;; this is what was wrong the whole time. we were reading from
+                ;; the *next* stack address, rather than the last one we wrote to.
+
+                ;; big thanks to zowie for talking me through debugging this on discord <3
+                var %value $nes.mem.read($calc(%stackAddress + 1))
 
                 ;; decrease stack pointer
                 hdec nes.mem stackPointer
         }
-
-        echo -s . stack ptr: $hget(nes.mem, stackPointer) $1 $base(%address, 10, 16, 4) -> $base(%value, 10, 16, 2)
 
         return %value
 }
