@@ -58,23 +58,19 @@ alias nes.mem.stack {
 alias nes.mem.write {
 
         bset &RAM $calc($1 + 1) $2
+
+        ;hadd nes.mem $1 $2
 }
 
 alias nes.mem.read {
 
         return $bvar(&RAM, $calc($1 + 1))
-}
 
-;; we only have one type of memory to save... for now.
-alias nes.mem.save {
-
-        if ($1 == RAM) {
-
-                hadd -b nes.mem RAM &RAM
-        }
+        ;return $hget(nes.mem, $1)
 }
 
 alias nes.mem.init {
+
 
         ;; set up RAM. just fill it with zeroes first.
         echo @nes.debug setting up RAM
@@ -84,11 +80,35 @@ alias nes.mem.init {
                 hfree nes.mem
         }
 
-        hmake nes.mem 10
+        ;; 64k RAM space, plus a lil extra for other stuff.
+        hmake nes.mem $calc(64 * 128)
 
         bset &RAM $calc(64 * 1024) 0
 
         ;; stack is 256 bytes from $0100 - $01FF.
         ;; it starts at $01FF and is filled from there, backwards.
         hadd nes.mem stackPointer 0
+}
+
+alias nes.mem.loadRom {
+
+        echo -a loading ROM... (this may take a while)
+
+        var %startAddress $1
+        var %size $hget(nes.data, ROM.PRGsize)
+        ;; for now assume &ROM already exists
+
+        var %i 0
+
+        while (%i < %size) {
+
+                var %byte $bvar(&ROM, $calc(%i + 1))
+                var %address $calc(%startAddress + %i)
+
+                hadd nes.mem %address %byte
+
+                ;echo -a . %address <- %byte
+
+                inc %i
+        }
 }

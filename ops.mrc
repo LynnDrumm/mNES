@@ -585,6 +585,8 @@ alias nes.cpu.mnemonic.jmp {
 ;; Jump to SubRoutine
 alias nes.cpu.mnemonic.jsr {
 
+        echo -s 56 JSR
+
         ;; mode is always absolute
         var %operand $3-
 
@@ -604,17 +606,17 @@ alias nes.cpu.mnemonic.jsr {
 
         var %returnAddress $base($calc($hget(nes.cpu, programCounter) - 1), 10, 16, 4)
 
-        echo -s . jsr return: %returnAddress
-
         ;; split into upper / lower byte
         var %upper $dec($left(%returnAddress, 2))
         var %lower $dec($right(%returnAddress, 2))
 
         ;; now we push this to the stack.
-        ;echo -s . nes.mem.stack push %upper
+        echo -s . nes.mem.stack push %upper
         nes.mem.stack push %upper
-        ;echo -s . nes.mem.stack push %upper
+        echo -s . nes.mem.stack push %upper
         nes.mem.stack push %lower
+
+        echo -s . jsr return: %returnAddress
 
         ;; and now we set the program counter to our target address!
         ;; we do gotta subtract 1 tho. stubid off by one errors...
@@ -626,6 +628,8 @@ alias nes.cpu.mnemonic.jsr {
 ;; ReTurn from Subroutine
 alias nes.cpu.mnemonic.rts {
 
+        echo -s 52 RTS
+
         ;; get topmost 2 values from the stack, that is the return address.
         ;; i love how incredibly cursed this is. if you performed an odd
         ;; number of push/pop operations in between a jsr and rts, you have
@@ -633,8 +637,11 @@ alias nes.cpu.mnemonic.rts {
         ;; theoretically abuse this to jump anywhere in memory.
         ;; ...why you would do that over just a plain jmp, i don't know.
         var %lower $hex($nes.mem.stack(pop))
+        echo -s . lower: %lower
         var %upper $hex($nes.mem.stack(pop))
+        echo -s . upper: %upper
         var %returnAddress $dec($+(%upper,%lower))
+        echo -s . RTS return: $hex(%returnAddress)
 
         hadd nes.cpu programCounter %returnAddress
 }

@@ -179,7 +179,7 @@ alias nes.init {
                 }
 
                 ;; save RAM
-                nes.mem.save RAM
+                hadd -b nes.mem RAM &RAM
 
                 ;; find the area of address space the PRG ROM occupies.
 
@@ -269,6 +269,10 @@ alias nes.init {
 
                 ;; start main cpu loop
                 .timernes.cpu.loop -mh 0 0 nes.cpu.loop
+
+                ;; start instructions-per-second timer
+                hadd nes.cpu ips.last 0
+                .timernes.ips.loop -mh 0 1000 nes.ips.calc
         }
 
         else {
@@ -276,6 +280,17 @@ alias nes.init {
                 echo @nes.debug first 4 bytes do not match! x.x
                 echo @nes.debug $qt($nopath(%nes.ROM)) is probably not a NES ROM file?
         }
+}
+
+
+alias nes.ips.calc {
+
+        var %last $hget(nes.cpu, ips.last)
+        var %current $hget(nes.cpu, cycles)
+
+        echo -s ips: $calc(%current - %last)
+
+        hadd nes.cpu ips.last %current
 }
 
 ;; da main loop!
@@ -300,7 +315,7 @@ alias nes.cpu.loop {
         ;; get mnemonic, instruction length (bytes), and mode
         tokenize 32 $hget(nes.cpu.opcode, %opcode)
 
-        var %mnemonic   $1
+        var %mnemonic $1
 
         if (%mnemonic != $null) {
 
@@ -351,7 +366,7 @@ alias nes.cpu.loop {
         ;; single
         ;; cycle.
         ;; ...anyway. fixed now >.>;
-        nes.mem.save RAM
+        hadd -b nes.mem RAM &RAM
 
         ;; if something goes wrong, halt the cpu emulation
         return
@@ -364,6 +379,7 @@ alias nes.cpu.stop {
         if ($timer(nes.cpu.loop) != $null) {
 
                 .timernes.cpu.loop off
+                .timernes.ips.loop off
 
                 echo @nes.debug cpu loop stopped.
                 halt
