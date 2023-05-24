@@ -152,53 +152,11 @@ alias nes.cpu.generateOpcodeTable {
         echo @nes.debug >> generating opcode table...
 
         ;; file containing list of all ops
-        var %file $scriptdir $+ ops.dat
+        var %file $scriptdir $+ ops.ini
 
-        ;; get total entries in file
-        var %t $lines(%file)
-        var %i 1
-
-        while (%i <= %t) {
-
-                var %entry $read(%file, %i)
-                echo @nes.debug adding $+(,$rand(76,87),$read(%file, %i))
-                hadd nes.cpu.opcode %entry
-                inc %i
-        }
+        hload -i nes.cpu.opcode $qt(%file) opcodes
 
         echo @nes.debug >> opcode table generated.
-}
-
-;; this entire function might be a bit overkill since it's only used once, I think.
-alias nes.baseConvertRange {
-
-        ;; i tried using the $* hack here, but it didn't work. sad 😞
-
-        ;; ok, maybe something was going wrong. it seems like whatever $bvar()
-        ;; gives us is not delimited with ascii character 32, which is the
-        ;; assumed default when handling tokens. weird. very weird.
-        ;; i'd rather not have to re-tokenise the string but I also can't seem
-        ;; to figure out what the hell the value is for some reason.
-
-        ;; if i look it up online (by copy/pasting from the output), it
-        ;; comes back up as ascii code 32. so it should work. but it doesn't
-        ;; what the fuck?
-
-        ;; maybe it's just $0 that is broken.
-        ;; it should do the same as $numtok($1-, 32), but doesn't. weird. 🙄
-
-        ;; anyway, this converts a range of numbers from decimal to hexadecimal.
-
-        var %i 1
-        var %t $numtok($1-, 32)
-
-        while (%i <= %t) {
-
-                var %r $instok(%r, $base($gettok($1-, %i, 32), 10, 16), $calc($numtok(%r, 32) + 1), 32)
-                inc %i
-        }
-
-        return %r
 }
 
 alias nes.init {
