@@ -130,15 +130,15 @@ alias nes.rom.load {
                         hadd nes.data rom.mirror C000
 
                         ;; copy the full ROM into both areas of RAM.
-                        bcopy &RAM $dec(8000) &ROM 1 $calc(((%PRGROMsize * 16) * 1024))
-                        bcopy &RAM $dec(C000) &ROM 1 $calc(((%PRGROMsize * 16) * 1024))
+                        bcopy &RAM $base(8000, 16, 10) &ROM 1 $calc(((%PRGROMsize * 16) * 1024))
+                        bcopy &RAM $base(C000, 16, 10) &ROM 1 $calc(((%PRGROMsize * 16) * 1024))
                 }
 
                 ;; find the area of address space the PRG ROM occupies.
 
                 var %ROMstart $hget(nes.data, rom.start)
 
-                echo @nes.debug PRG ROM is mapped to %ROMstart - $hex($calc($dec(%ROMstart) + ((%PRGROMsize * 16) * 1024) - 1))
+                echo @nes.debug PRG ROM is mapped to %ROMstart
                 echo @nes.debug -------------------------------------
         }
 
@@ -149,4 +149,36 @@ alias nes.rom.load {
         }
 
 
+}
+
+;; this entire function might be a bit overkill since it's only used once, I think.
+alias nes.baseConvertRange {
+
+        ;; i tried using the $* hack here, but it didn't work. sad 😞
+
+        ;; ok, maybe something was going wrong. it seems like whatever $bvar()
+        ;; gives us is not delimited with ascii character 32, which is the
+        ;; assumed default when handling tokens. weird. very weird.
+        ;; i'd rather not have to re-tokenise the string but I also can't seem
+        ;; to figure out what the hell the value is for some reason.
+
+        ;; if i look it up online (by copy/pasting from the output), it
+        ;; comes back up as ascii code 32. so it should work. but it doesn't
+        ;; what the fuck?
+
+        ;; maybe it's just $0 that is broken.
+        ;; it should do the same as $numtok($1-, 32), but doesn't. weird. 🙄
+
+        ;; anyway, this converts a range of numbers from decimal to hexadecimal.
+
+        var %i 1
+        var %t $numtok($1-, 32)
+
+        while (%i <= %t) {
+
+                var %r $instok(%r, $base($gettok($1-, %i, 32), 10, 16), $calc($numtok(%r, 32) + 1), 32)
+                inc %i
+        }
+
+        return %r
 }
