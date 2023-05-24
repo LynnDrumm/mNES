@@ -418,7 +418,6 @@ alias nes.cpu.mnemonic.lsr {
 
         ;; lowest bit is shifted into the carry flag,
         ;; highest bit is set to 0
-
         if (%mode == accumulator) {
 
                 var %value $bin($hget(nes.cpu, accumulator))
@@ -505,19 +504,28 @@ alias nes.cpu.mnemonic.bne {
         var %sign $iif($getBit(%operand, 7) == 1, -, +)
 
         ;; two's complement, condensed!
-        var %value $calc($dec($invert($bin(%operand))).bin + 1)
+        ;var %value $calc($dec($invert($bin(%operand))).bin + 1)
+        ;; above line used $invert, which is a function i wrote (find it lower
+        ;; in this file...) -- it seemed a bit silly though, but...
+        ;; $not returns a 32-bit value, i don't know how to cull it
+        ;; apart from converting from decimal to binary, then keeping
+        ;; only the rightmost 8 bits and converting that back to decimal...
+        ;; so this isn't really much better at all.
+        var %value $calc($base($right($base($not(%operand), 10, 2), 8), 2, 10) + 1)
 
         ;; interpreter abuse, as above
         var %result $calc($hget(nes.cpu, programCounter) %sign %value)
 
         if ($hget(nes.cpu, status.zero) == 0) {
 
-                ;iline @nes.debug $line(@nes.debug, -1) ------- branch ------------------------------
-
                 hadd nes.cpu programCounter %result
         }
 
-        return %result
+        ;; add 1 to the output result for display purposes.
+        ;; the actually calculated value is correct, setting the program
+        ;; counter 1 before the desired branch address, which it will
+        ;; be set to as soon as the CPU loop restarts
+        return $calc(%result + 1)
 }
 
 ;; branch if carry set
@@ -539,6 +547,10 @@ alias nes.cpu.mnemonic.bcs {
                 hadd nes.cpu programCounter %result
         }
 
+        ;; add 1 to the output result for display purposes.
+        ;; the actually calculated value is correct, setting the program
+        ;; counter 1 before the desired branch address, which it will
+        ;; be set to as soon as the CPU loop restarts
         return $calc(%result + 1)
 }
 
