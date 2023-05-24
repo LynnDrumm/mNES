@@ -43,6 +43,36 @@ alias nes.cpu.mnemonic.lda {
                 var %result $nes.mem.read(%operand)
         }
 
+        elseif (%mode == indirect,y) {
+
+                ;; get lower byte of address from zeropage
+                var %addressLower $hex($nes.mem.read(%operand))
+
+                ;; get higher byte of address from consecutive zeropage address
+                ;; if crossing zeropage address ff, loop back around.
+                if (%operand < 255) {
+
+                        var %addressHigher $hex($nes.mem.read(%operand + 1))
+                }
+
+                else {
+
+                        var %addressHigher $hex($nes.mem.read(0))
+                }
+
+                ;; combine higher/lower, add y index, that is our target address.
+                var %address $calc($dec($+(%addressHigher,%addressLower)) + $hget(nes.cpu, y))
+
+                ;; loop back to $0000 if crossing $ffff
+                if (%address > $hex(ffff)) {
+
+                        var %address $calc(%address - $hex(ffff))
+                }
+
+                ;; get value from address
+                var %result $nes.mem.read(%address)
+        }
+
         ;; store result in accumulator
         hadd nes.cpu accumulator %result
 
@@ -57,11 +87,9 @@ alias nes.cpu.mnemonic.sta {
 
         var %length     $1
         var %mode       $2
-        var %operand    $3
+        var %operand    $3-
 
         if (%mode == absolute) {
-
-                var %operand $3-
 
                 var %address $mergeBytes(%operand)
         }
@@ -98,6 +126,17 @@ alias nes.cpu.mnemonic.sta {
                 var %address %operand
         }
 
+        elseif (%mode == absolute,x) {
+
+                var %address $calc($mergeBytes(%operand) + $hget(nes.cpu, x))
+
+                ;; handle overflow
+                if (%address > $dec(ffff)) {
+
+                        var %address $calc(%address - $dec(ffff))
+                }
+        }
+
         nes.mem.write %address $hget(nes.cpu, accumulator)
 
         return %address
@@ -107,6 +146,12 @@ alias nes.cpu.mnemonic.sta {
 alias nes.cpu.mnemonic.pha {
 
         nes.mem.stack push $hget(nes.cpu, accumulator)
+}
+
+;; pull accu from stack
+alias nes.cpu.mnemonic.pla {
+
+        hadd nes.cpu accumulator $nes.mem.stack(pop)
 }
 
 ;; LoaD X index with memory
@@ -119,6 +164,12 @@ alias nes.cpu.mnemonic.ldx {
         if (%mode == immediate) {
 
                 var %result %operand
+        }
+
+        elseif (%mode == absolute) {
+
+                var %address $mergeBytes(%operand)
+                var %result  $nes.mem.read(%address)
         }
 
         ;; set x register to result
@@ -202,6 +253,22 @@ alias nes.cpu.mnemonic.sty {
         return %address
 }
 
+;; increment y register
+alias nes.cpu.mnemonic.iny {
+
+        hinc nes.cpu y
+
+        ;; if y is now less than 0, roll back over to $ff
+        if ($hget(nes.cpu, y) > 255) {
+
+                hadd nes.cpu y 0
+        }
+
+        setFlag zero     $hget(nes.cpu, y)
+        setFlag negative $hget(nes.cpu, y)
+}
+
+
 ;; decrement y register
 alias nes.cpu.mnemonic.dey {
 
@@ -216,6 +283,22 @@ alias nes.cpu.mnemonic.dey {
         setFlag zero     $hget(nes.cpu, y)
         setFlag negative $hget(nes.cpu, y)
 }
+
+;; increment x register
+alias nes.cpu.mnemonic.inx {
+
+        hinc nes.cpu x
+
+        ;; if x is now less than 0, roll back over to $ff
+        if ($hget(nes.cpu, x) > 255) {
+
+                hadd nes.cpu x 0
+        }
+
+        setFlag zero     $hget(nes.cpu, x)
+        setFlag negative $hget(nes.cpu, x)
+}
+
 
 ;; decrement x register
 alias nes.cpu.mnemonic.dex {
@@ -462,6 +545,34 @@ alias nes.cpu.mnemonic.lsr {
 
 }
 
+alias nes.cpu.mnemonic.asl {
+
+        var %mode $2
+        var %operand $3
+
+        if (%mode == zeropage) {
+
+                var %address %operand
+
+                var %value $nes.mem.read(%address)
+        }
+
+        if (%mode == accumulator) {
+
+                var %value $hget(nes.cpu, accumulator)
+        }
+
+        var %bit7 $left($bin(%value), 1)
+
+        var %result $dec($+($right(%value, 7),0)).bin
+
+        hadd nes.cpu status.carry %bit7
+        hadd nes.cpu status.negative %bit7
+        setFlag zero %result
+
+
+}
+
 ;; branch if equal
 alias nes.cpu.mnemonic.beq {
 
@@ -561,6 +672,32 @@ alias nes.cpu.mnemonic.bcs {
         var %result $calc($hget(nes.cpu, programCounter) %sign %value)
 
         if ($hget(nes.cpu, status.carry) == 1) {
+
+                hadd nes.cpu programCounter %result
+        }
+
+        ;; add 1 to the output result for display purposes.
+        ;; the actually calculated value is correct, setting the program
+        ;; counter 1 before the desired branch address, which it will
+        ;; be set to as soon as the CPU loop restarts
+        return $calc(%result + 1)
+}
+
+;; branch on carry clear
+alias nes.cpu.mnemonic.bcc {
+
+        var %operand $3
+
+        ;; get sign to determine branching forward or backward
+        var %sign $iif($getBit(%operand, 7) == 1, -, +)
+
+        ;; two's complement, condensed!
+        var %value $calc($dec($invert($bin(%operand))).bin + 1)
+
+        ;; interpreter abuse, as above
+        var %result $calc($hget(nes.cpu, programCounter) %sign %value)
+
+        if ($hget(nes.cpu, status.carry) == 0) {
 
                 hadd nes.cpu programCounter %result
         }
@@ -742,6 +879,30 @@ alias nes.cpu.mnemonic.dec {
         setFlag negative %result
 
         return %result
+}
+
+alias nes.cpu.mnemonic.ora {
+
+        var %mode       $2
+        var %operand    $3
+
+        if (%mode == immediate) {
+
+                var %value %operand
+        }
+
+        ;; binary OR
+
+        var %accumulator $bin($hget(nes.cpu, accumulator))
+        var %value       $bin(%value)
+
+        var %result     $or(%accumulator, %value)
+
+        ;; store result in accumulator
+        hadd nes.cpu accumulator $dec(%result).bin
+
+        setFlag zero     $hget(nes.cpu, accumulator)
+        setFlag negative $hget(nes.cpu, accumulator)
 }
 
 ;; -----------------------------------------------------------------------------------------------------------------------------------
