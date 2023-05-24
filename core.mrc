@@ -69,6 +69,7 @@ alias nes.cpu.loop {
 
         ;; if something goes wrong, halt the cpu emulation
         :error
+        nes.debug.cpu $hget(nes.cpu, programCounter) %opcode 0
         nes.cpu.stop
 }
 
@@ -82,7 +83,7 @@ alias nes.cpu.start {
         ;; if mIRC locks up too much, adjust this down.
         ;; anything 100 or less is a sane value, above that it gets
         ;; *really* impractical as this also affects keyboard input.
-        var %cyclesPerInterval 50
+        var %cyclesPerInterval 10
 
         ;; if cycleDelay is set at all, cycles per interval is always 1.
         hadd nes.cpu cyclesPerTimer $iif(%cycleDelay, 1, %cyclesPerInterval)
