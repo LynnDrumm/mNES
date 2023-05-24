@@ -124,12 +124,8 @@ alias nes.cpu.mnemonic.ldx {
         ;; set x register to result
         hadd nes.cpu x %result
 
-        ;; set negative flag equal to the 7th bit,
-        ;; i assume of the operand?
-        hadd nes.cpu status.negative $getBit(%result, 7)
-
-        ;; set zero flag if operand is #$00, else clear it.
-        hadd nes.cpu status.zero $iif(%result == 0, 1, 0)
+        setFlag zero     %result
+        setFlag negative %result
 
         return %result
 }
@@ -142,11 +138,8 @@ alias nes.cpu.mnemonic.txa {
         ;; write contents of x to accumulator
         hadd nes.cpu accumulator %value
 
-        ;; set negative flag if bit 7 of the accumulator is set
-        hadd nes.cpu status.negative $getBit(%value, 7)
-
-        ;; set zero flag if accumulator is now 0
-        hadd nes.cpu status.zero $iif(%value == 0, 1, 0)
+        setFlag zero     $hget(nes.cpu, accumulator)
+        setFlag negative $hget(nes.cpu, accumulator)
 }
 
 ;; transfer accumulator to X
@@ -157,27 +150,15 @@ alias nes.cpu.mnemonic.tax {
         ;; write contents of accumulator to x
         hadd nes.cpu x %value
 
-        ;; set negative flag if bit 7 of x is set
-        hadd nes.cpu status.negative $getBit(%value, 7)
-
-        ;; set zero flag if x is now 0
-        hadd nes.cpu status.zero $iif(%value == 0, 1, 0)
+        setFlag zero     $hget(nes.cpu, accumulator)
+        setFlag negative $hget(nes.cpu, accumulator)
 }
 
 ;;Transfer X to Stack
 alias nes.cpu.mnemonic.txs {
 
-        ;; always implicit
-
-        ;; get the value from the x register
-        var %value $hget(nes.cpu, x)
-
-        ;; set negative flag equal to the 7th bit,
-        ;; i assume of the byte in the x register?
-        hadd nes.cpu status.negative $getBit(%value, 7)
-
-        ;; store the value of X into the stack
-        nes.mem.stack push %value
+        ;; store the value in X to the stack
+        nes.mem.stack push $hget(nes.cpu, x)
 }
 
 ;; load y index with memory
@@ -195,11 +176,8 @@ alias nes.cpu.mnemonic.ldy {
         ;; set y register to result
         hadd nes.cpu y %result
 
-        ; clear negative flag if operand is #$00 - #$7F, else set it.
-        hadd nes.cpu status.negative $getBit(%value, 7)
-
-        ;; set zero flag if operand is #$00
-        hadd nes.cpu status.zero $iif(%result == 0, 1, 0)
+        setFlag zero     $hget(nes.cpu, y)
+        setFlag negative $hget(nes.cpu, y)
 
         return %result
 }
@@ -235,11 +213,8 @@ alias nes.cpu.mnemonic.dey {
                 hadd nes.cpu y $dec(ff)
         }
 
-        ;; set negative flag if bit 7 is set
-        hadd nes.cpu status.negative $getBit($hget(nes.cpu, y), 7)
-
-        ;; set zero flag if operand is #$00
-        hadd nes.cpu status.zero $iif($hget(nes.cpu, y) == 0, 1, 0)
+        setFlag zero     $hget(nes.cpu, y)
+        setFlag negative $hget(nes.cpu, y)
 }
 
 ;; decrement x register
@@ -252,11 +227,8 @@ alias nes.cpu.mnemonic.dex {
                 hadd nes.cpu x $dec(ff)
         }
 
-        ;; set negative flag if bit 7 is set
-        hadd nes.cpu status.negative $getBit($hget(nes.cpu, x), 7)
-
-        ;; set zero flag if operand is #$00
-        hadd nes.cpu status.zero $iif($hget(nes.cpu, x) == 0, 1, 0)
+        setFlag zero     $hget(nes.cpu, x)
+        setFlag negative $hget(nes.cpu, x)
 }
 
 ;; transfer y to accumulator
@@ -266,11 +238,8 @@ alias nes.cpu.mnemonic.tya {
 
         hadd nes.cpu accumulator %value
 
-                ;; set negative flag if bit 7 of the accumulator is set
-        hadd nes.cpu status.negative $getBit(%value, 7)
-
-        ;; set zero flag if accumulator is now 0
-        hadd nes.cpu status.zero $iif(%value == 0, 1, 0)
+        setFlag zero     $hget(nes.cpu, y)
+        setFlag negative $hget(nes.cpu, y)
 }
 
 ;; Logical AND memory with accumulator
@@ -321,32 +290,42 @@ alias nes.cpu.mnemonic.and {
         ;; push the result to the accumulator
         hadd nes.cpu accumulator %result
 
-        ;; set negative flag equal to the 7th bit.
-        ;; of the operand, or the result?
-        hadd nes.cpu status.negative $getBit(%result, 7)
-
-        ;; set zero flag if operand is #$00, else clear it.
-        hadd nes.cpu status.zero $iif(%result == 0, 1, 0)
+        setFlag zero     $hget(nes.cpu, accumulator)
+        setFlag negative $hget(nes.cpu, accumulator)
 }
 
 ;; compare contents of accumulator with another value
 alias nes.cpu.mnemonic.cmp {
 
         var %mode       $2
-        var %operand    $3-
+        var %operand    $3
 
         if (%mode == immediate) {
 
                 var %value %operand
         }
 
-        var %result $calc(%$hget(nes.cpu, accumulator) - %value)
+        var %result $calc($hget(nes.cpu, accumulator) - %value)
 
-        hadd nes.cpu status.carry    $iif(%accumulator >= %value, 1, 0)
-        hadd nes.cpu status.zero     $iif(%accumulator == %value, 1, 0)
+        ;; set zero flag on "equal" comparison (i.e., both accu and
+        ;; operand are the same value and result is 0)
+        setFlag zero     %result
+        ;; negative flag is set if bit 7 is set
+        setFlag negative %result
 
-        ;; negative flag is set if the 7th bit of the result is set.
-        hadd nes.cpu status.negative $getBit(%result, 7)
+        ;; carry is set if value is <= to accumulator,
+        ;; reset if greater than.
+        ;; hardcoded for now until I'm sure I can re-use
+        ;; this code for other instructions
+        if (%result <= $hget(nes.cpu, accumulator)) {
+
+                hadd nes.cpu status.carry 1
+        }
+
+        else {
+
+                hadd nes.cpu status.carry 0
+        }
 }
 
 ;; add with carry
@@ -407,6 +386,8 @@ alias nes.cpu.mnemonic.adc {
 
                 hadd nes.cpu status.overflow 0
         }
+
+        setFlag negative
 }
 
 ;; ROtate Right
@@ -429,8 +410,21 @@ alias nes.cpu.mnemonic.ror {
         ;; bit 7 is set to current value of carry.
         var %result $dec($+(%carry,$left(%value, 7))).bin
 
+        ;; set N flag to "input carry". like this?
+        hadd nes.cpu status.negative $hget(nes.cpu, status.carry)
         ;; set carry to previous value of bit 0
         hadd nes.cpu status.carry %bit0
+
+        if (%result == 0) {
+
+                hadd nes.cpu status.zero 1
+        }
+
+        else {
+
+                hadd nes.cpu status.zero 0
+        }
+
 }
 
 ;; logical shift right
@@ -461,9 +455,10 @@ alias nes.cpu.mnemonic.lsr {
         }
 
         ;; set status flags
+        setFlag zero %result
+        ;; negative flag is always set to 0
+        hadd nes.cpu status.negative 0
         hadd nes.cpu status.carry    %carry
-        hadd nes.cpu status.zero     $iif(%result == 0, 1, 0)
-        hadd nes.cpu status.negative $getBit(%result, 7)
 
 }
 
@@ -719,11 +714,8 @@ alias nes.cpu.mnemonic.inc {
                 nes.mem.write %address %result
         }
 
-        ;; set negative flag equal to the 7th bit of the result
-        hadd nes.cpu status.negative $getBit(%result, 7)
-
-        ;; set zero flag if result is #$00, else clear it.
-        hadd nes.cpu status.zero $iif(%result == 0, 1, 0)
+        setFlag zero     %result
+        setFlag negative %result
 
         return %result
 }
@@ -746,11 +738,8 @@ alias nes.cpu.mnemonic.dec {
                 nes.mem.write %address %result
         }
 
-        ;; set negative flag equal to the 7th bit of the result
-        hadd nes.cpu status.negative $getBit(%result, 7)
-
-        ;; set zero flag if result is #$00, else clear it.
-        hadd nes.cpu status.zero $iif(%result == 0, 1, 0)
+        setFlag zero     %result
+        setFlag negative %result
 
         return %result
 }
