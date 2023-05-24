@@ -75,13 +75,21 @@ alias nes.cpu.loop {
 ;; resumes CPU from last stop point. $1 is optional timer interval
 alias nes.cpu.start {
 
+        ;; get cycle delay value
         var %cycleDelay $1
 
+        ;; number of cycles to run per timer interval.
+        ;; if mIRC locks up too much, adjust this down.
+        ;; anything 100 or less is a sane value, above that it gets
+        ;; *really* impractical as this also affects keyboard input.
+        var %cyclesPerInterval 50
+
+        ;; if cycleDelay is set at all, cycles per interval is always 1.
+        hadd nes.cpu cyclesPerTimer $iif(%cycleDelay, 1, %cyclesPerInterval)
+
+        ;; start cpu loop
         iline @nes.debug $line(@nes.debug, -1) resuming cpu
-
         .timernes.cpu.loop -h 0 $iif(%cycleDelay, %cycleDelay, 0) nes.cpu.loop
-
-        hadd nes.cpu cyclesPerTimer $iif(%cycleDelay, 1, 100)
 
         ;; start instructions-per-second timer
         hadd nes.cpu ips.last 0
