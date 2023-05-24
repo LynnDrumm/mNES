@@ -140,7 +140,7 @@ alias nes.cpu.statusFlags {
         return $+(%N,%V,%5,%B,%D,%I,%Z,%C)
 }
 
-alias nes.cpu.generateOpcodeTable {
+alias nes.cpu.loadOpcodeTable {
 
         if ($hget(nes.cpu.opcode) != $null) {
 
@@ -149,14 +149,11 @@ alias nes.cpu.generateOpcodeTable {
 
         hmake nes.cpu.opcode 256
 
-        echo @nes.debug >> generating opcode table...
-
         ;; file containing list of all ops
         var %file $scriptdir $+ ops.ini
-
         hload -i nes.cpu.opcode $qt(%file) opcodes
 
-        echo @nes.debug >> opcode table generated.
+        echo @nes.debug >> opcode table loaded.
 }
 
 alias nes.init {
@@ -191,7 +188,7 @@ alias nes.init {
         }
 
         ;; generate the opcode table
-        nes.cpu.generateOpcodeTable
+        nes.cpu.loadOpcodeTable
 
         ;; initialise memory
         nes.mem.init
