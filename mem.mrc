@@ -89,26 +89,3 @@ alias nes.mem.init {
         ;; it starts at $01FF and is filled from there, backwards.
         hadd nes.mem stackPointer 0
 }
-
-alias nes.mem.loadRom {
-
-        echo -a loading ROM... (this may take a while)
-
-        var %startAddress $1
-        var %size $hget(nes.data, ROM.PRGsize)
-        ;; for now assume &ROM already exists
-
-        var %i 0
-
-        while (%i < %size) {
-
-                var %byte $bvar(&ROM, $calc(%i + 1))
-                var %address $calc(%startAddress + %i)
-
-                hadd nes.mem %address %byte
-
-                ;echo -a . %address <- %byte
-
-                inc %i
-        }
-}
