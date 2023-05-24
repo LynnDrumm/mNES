@@ -24,7 +24,7 @@ alias nes.cpu.mnemonic.lda {
 
         var %length     $1
         var %mode       $2
-        var %operand    $3-
+        var %operand    $3
 
         if (%mode == immediate) {
 
@@ -33,7 +33,9 @@ alias nes.cpu.mnemonic.lda {
 
         elseif (%mode == absolute) {
 
-                var %result $nes.mem.read($mergeBytes(%operand))
+                ;; operand is 2 bytes, so let's grab them both.
+                var %operand    $3-
+                var %result     $nes.mem.read($mergeBytes(%operand))
         }
 
         elseif (%mode == zeropage) {
@@ -44,11 +46,8 @@ alias nes.cpu.mnemonic.lda {
         ;; store result in accumulator
         hadd nes.cpu accumulator %result
 
-        ;; set negative flag is bit 7 is set
-        hadd nes.cpu status.negative $getBit(%result, 7)
-
-        ;; set zero flag if operand is #$00
-        hadd nes.cpu status.zero $iif(%result == 0, 1, 0)
+        setFlag zero     $hget(nes.cpu, accumulator)
+        setFlag negative $hget(nes.cpu, accumulator)
 
         return %result
 }
@@ -58,16 +57,40 @@ alias nes.cpu.mnemonic.sta {
 
         var %length     $1
         var %mode       $2
-        var %operand    $3-
+        var %operand    $3
 
         if (%mode == absolute) {
+
+                var %operand $3-
 
                 var %address $mergeBytes(%operand)
         }
 
         elseif (%mode == indirect,y) {
 
-                var %address $calc($nes.mem.read(%operand) + $hget(nes.cpu, y))
+                ;; get lower byte of address from zeropage
+                var %addressLower $hex($nes.mem.read(%operand))
+
+                ;; get higher byte of address from consecutive zeropage address
+                ;; if crossing zeropage address ff, loop back around.
+                if (%operand < 255) {
+
+                        var %addressHigher $hex($nes.mem.read(%operand + 1))
+                }
+
+                else {
+
+                        var %addressHigher $hex($nes.mem.read(0))
+                }
+
+                ;; combine higher/lower, add y index, that is our target address.
+                var %address $calc($dec($+(%addressHigher,%addressLower)) + $hget(nes.cpu, y))
+
+                ;; loop back to $0000 if crossing $ffff
+                if (%address > $hex(ffff)) {
+
+                        var %address $calc(%address - $hex(ffff))
+                }
         }
 
         elseif (%mode == zeropage) {
@@ -571,7 +594,7 @@ alias nes.cpu.mnemonic.bpl {
 
         if ($hget(nes.cpu, status.negative) == 0) {
 
-                hadd nes.cpu.programCounter %result
+                hadd nes.cpu programCounter %result
         }
 
         return %result
@@ -734,6 +757,37 @@ alias nes.cpu.mnemonic.dec {
 
 ;; -----------------------------------------------------------------------------------------------------------------------------------
 
+;; sets $1 flag based on $2 input
+alias -l setFlag {
+
+        if ($1 == zero) {
+
+                ;; sets zero flag is input is 0
+                if ($2 == 0) {
+
+                        hadd nes.cpu status.zero 1
+                }
+
+                else {
+
+                        hadd nes.cpu status.zero 0
+                }
+        }
+
+        elseif ($1 == negative) {
+
+                ;; sets negative flag if bit 7 of input is 1
+                if ($2 > 127) {
+
+                        hadd nes.cpu status.negative 1
+                }
+
+                else {
+
+                        hadd nes.cpu status.negative 0
+                }
+        }
+}
 
 ;; gets the $2-th bit of the byte in $1
 
