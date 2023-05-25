@@ -17,6 +17,9 @@ alias nes.cpu.loop {
                 ;; increment the current program counter
                 hinc nes.cpu programCounter
 
+                ;; assign it to %pc so it stays persistent for debug output
+                var %pc $hget(nes.cpu, programCounter)
+
                 ;; get opcode byte (in hex) at program counter's address
                 var %opcode $hex($bvar(&RAM, $hget(nes.cpu, programCounter)))
 
@@ -45,7 +48,7 @@ alias nes.cpu.loop {
 
                 ;; show pretty output
                 ;; if we gott a return value, it's in $result
-                nes.debug.cpu $hget(nes.cpu, programCounter) %opcode %length %mode %mnemonic %operand $result %ticks
+                nes.debug.cpu %pc %opcode %length %mode %mnemonic %operand $result %ticks
 
                 ;; just count single cycles for now
                 hinc nes.cpu cycles
@@ -83,7 +86,7 @@ alias nes.cpu.start {
         ;; if mIRC locks up too much, adjust this down.
         ;; anything 100 or less is a sane value, above that it gets
         ;; *really* impractical as this also affects keyboard input.
-        var %cyclesPerInterval 10
+        var %cyclesPerInterval 50
 
         ;; if cycleDelay is set at all, cycles per interval is always 1.
         hadd nes.cpu cyclesPerTimer $iif(%cycleDelay, 1, %cyclesPerInterval)
@@ -168,7 +171,8 @@ alias nes.cpu.loadOpcodeTable {
 alias nes.init {
 
         ;; open our own window
-        window -e @nes.debug
+        ;; add a side listbox to display stack and other info
+        window -el16 @nes.debug
 
         echo @nes.debug -------------------------------------
         echo @nes.debug mNES v0.4
