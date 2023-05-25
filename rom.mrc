@@ -32,7 +32,7 @@ alias nes.rom.load {
         if (%headerValue == %headerConst) {
 
                 echo @nes.debug first 4 bytes match! ^-^
-                ;echo @nes.debug $qt($nopath(%nes.ROM)) is probably a NES ROM file!
+                echo @nes.debug $qt($nopath(%nes.ROM)) is probably a NES ROM file!
 
                 ;; load ROM as binvar, skipping the first 16 bytes of the header.
                 var %ROMsize $calc($file(%nes.ROM).size - 16)
