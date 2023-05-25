@@ -49,6 +49,8 @@ alias nes.mem.stack {
 
         echo -s . $time : stack $1 -> $base(%value, 10, 16)
 
+        updateStackDisplay
+
         return %value
 }
 
@@ -85,7 +87,29 @@ alias nes.mem.init {
 
         bset &RAM $calc(64 * 1024) 0
 
+        ;; stack init
+
         ;; stack is 256 bytes from $0100 - $01FF.
         ;; it starts at $01FF and is filled from there, backwards.
         hadd nes.mem stackPointer 0
+
+        ;; update stack in listbox
+        updateStackDisplay
+}
+
+alias -l updateStackDisplay {
+
+        clear -l @nes.debug
+
+        var %i 0
+
+        while (%i < 256) {
+
+                var %address $calc($base(01FF, 16, 10) - %i)
+
+                aline -l @nes.debug $+($,$base(%address, 10, 16, 4)) : $base($nes.mem.read(%address), 10, 16, 2)
+                inc %i
+        }
+
+        sline -l @nes.debug $calc($hget(nes.mem, stackPointer) + 1)
 }
