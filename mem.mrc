@@ -105,11 +105,12 @@ alias -l updateStackDisplay {
 
         while (%i < 256) {
 
-                var %address $calc($base(01FF, 16, 10) - %i)
+                var %address $calc($base(0100, 16, 10) + %i)
+                var %value $base($nes.mem.read(%address), 10, 16, 2)
 
-                aline -l @nes.debug $+($,$base(%address, 10, 16, 4)) : $base($nes.mem.read(%address), 10, 16, 2)
+                aline -l @nes.debug $+($,$base(%address, 10, 16, 4)) : %value
                 inc %i
         }
 
-        sline -l @nes.debug $calc($hget(nes.mem, stackPointer) + 1)
+        sline -l @nes.debug $calc(256 - $hget(nes.mem, stackPointer))
 }
