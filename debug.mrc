@@ -65,7 +65,7 @@ alias nes.debug.cpu {
                         }
 
                         ;; calculate n prettify execution time
-                        var %ticks $+(96,$calc($ticksqpc - $hget(nes.cpu, ticks.instruction)),94ms) 91/ $+(96,$calc($ticksqpc - $hget(nes.cpu, ticks.start)),94ms91,$chr(44),96) $hget(nes.cpu, ips) 94ips
+                        var %ticks $+(96,$calc($ticksqpc - $hget(nes.cpu, ticks.instruction)),94ms) 91/96 $calc($hget(nes.cpu, ips) / 1000000)
 
                         ;; prettify the status flag display
                         var %flags $replace($nes.cpu.statusFlags, 0, $+(30,0), 1, $+(66,1))
@@ -83,6 +83,8 @@ alias nes.debug.cpu {
 
                 ;; print a warning if we encounter an unimplemented opcode
                 echo @nes.debug %cycles %pc 93: %opcode $padString(5, %operand) 93-> 54,52 $+ /!\66,28 $+ $+($chr(160),unimplemented instruction,$chr(160),) $+(96,$calc($ticksqpc - $hget(nes.cpu, ticks.start)),94ms)
+                ;echo -a stack dump:
+                ;echo -a . $bvar(&RAM, $dec(0101), $dec(ff))
         }
 }
 
@@ -103,9 +105,15 @@ alias nes.debug.init {
         }
 }
 
+alias nes.debug.stackDump {
+
+        ;noop $hget(nes.mem, ram, &RAM)
+        echo -a . $bvar(&RAM, $dec(0101), 256)
+}
+
 alias -l debugHeader {
 
-        echo @nes.debug 91---95cyl91-95pc91------95op91-95oprnd91----95mnm91-95result91----95A91--95X91--95Y91----95mode91--------95NVssDIZC91---95exec91--95real91------------
+        echo @nes.debug 91---95cyl91-95pc91------95op91-95oprnd91----95mnm91-95result91----95A91--95X91--95Y91----95mode91--------95NVssDIZC91---95exec91--95mips91----
 }
 
 ;; pad $2- up to $1 characters, using $chr(160) ((unicode space))
