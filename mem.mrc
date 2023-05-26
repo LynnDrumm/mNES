@@ -94,12 +94,24 @@ alias nes.mem.init {
         hadd nes.mem stackPointer 0
 
         ;; update stack in listbox
+        initStackDisplay
         updateStackDisplay
 }
 
-alias -l updateStackDisplay {
+alias -l initStackDisplay {
 
         clear -l @nes.debug
+
+        var %i 0
+
+        while (%i < 256) {
+
+                aline -l @nes.debug .
+                inc %i
+        }
+}
+
+alias -l updateStackDisplay {
 
         var %i 0
 
@@ -108,9 +120,13 @@ alias -l updateStackDisplay {
                 var %address $calc($base(0100, 16, 10) + %i)
                 var %value $base($nes.mem.read(%address), 10, 16, 2)
 
-                aline -l @nes.debug $+($,$base(%address, 10, 16, 4)) : %value
+                rline -l @nes.debug $calc(%i + 1) $+($,$base(%address, 10, 16, 4)) : %value
                 inc %i
         }
 
+        ;; select last item on the list to force scroll
+        sline -l @nes.debug 256
+
+        ;; select current stack address
         sline -l @nes.debug $calc(256 - $hget(nes.mem, stackPointer))
 }
