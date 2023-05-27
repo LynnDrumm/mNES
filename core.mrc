@@ -74,10 +74,14 @@ alias nes.cpu.loop {
         :error
         nes.debug.cpu $hget(nes.cpu, programCounter) %opcode 0
         nes.cpu.stop
+        halt
 }
 
 ;; resumes CPU from last stop point. $1 is optional timer interval
 alias nes.cpu.start {
+
+        ;; reload opcode table -- just for testing.
+        nes.cpu.loadOpcodeTable
 
         ;; get cycle delay value
         var %cycleDelay $1
@@ -102,19 +106,12 @@ alias nes.cpu.start {
 
 alias nes.cpu.stop {
 
-        if ($timer(nes.cpu.loop) != $null) {
+        .timernes.cpu.loop off
+        .timernes.ips.loop off
 
-                .timernes.cpu.loop off
-                .timernes.ips.loop off
+        iline @nes.debug $line(@nes.debug, -1) cpu loop stopped.
 
-                iline @nes.debug $line(@nes.debug, -1) cpu loop stopped.
-                halt
-        }
-
-        else {
-
-                iline @nes.debug $line(@nes.debug, -1) cpu is not running.
-        }
+        halt
 }
 
 alias nes.ips.calc {
@@ -122,7 +119,7 @@ alias nes.ips.calc {
         var %last $hget(nes.cpu, ips.last)
         var %current $hget(nes.cpu, cycles)
 
-        echo -s ips: $calc(%current - %last)
+        ;echo -s ips: $calc(%current - %last)
 
         hadd nes.cpu ips $calc(%current - %last)
         hadd nes.cpu ips.last %current
