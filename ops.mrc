@@ -24,7 +24,7 @@ alias nes.cpu.mnemonic.lda {
 
         var %length     $1
         var %mode       $2
-        var %operand    $3
+        var %operand    $3-
 
         if (%mode == immediate) {
 
@@ -33,9 +33,19 @@ alias nes.cpu.mnemonic.lda {
 
         elseif (%mode == absolute) {
 
-                ;; operand is 2 bytes, so let's grab them both.
-                var %operand    $3-
-                var %result     $nes.mem.read($mergeBytes(%operand))
+                var %result $nes.mem.read($mergeBytes(%operand))
+        }
+
+        elseif (%mode == absolute,x) {
+
+                var %address $calc($mergeBytes(%operand) + $hget(nes.cpu, x))
+
+                if (%address > $dec(ffff)) {
+
+                        var %address $calc(%address - $dec(ffff))
+                }
+
+                var %result $nes.mem.read(%address)
         }
 
         elseif (%mode == zeropage) {
@@ -152,6 +162,9 @@ alias nes.cpu.mnemonic.pha {
 alias nes.cpu.mnemonic.pla {
 
         hadd nes.cpu accumulator $nes.mem.stack(pop)
+
+        setFlag zero     $hget(nes.cpu, accumulator)
+        setFlag negative $hget(nes.cpu, accumulator)
 }
 
 ;; LoaD X index with memory
@@ -181,6 +194,21 @@ alias nes.cpu.mnemonic.ldx {
         return %result
 }
 
+alias nes.cpu.mnemonic.stx {
+
+        var %mode $2
+        var %operand $3
+
+        if (%mode == absolute) {
+
+                var %address $mergeBytes(%operand)
+        }
+
+        nes.mem.write %address $hget(nes.cpu, x)
+
+        return %address
+}
+
 ;; transfer X to accumulator
 alias nes.cpu.mnemonic.txa {
 
@@ -205,11 +233,55 @@ alias nes.cpu.mnemonic.tax {
         setFlag negative $hget(nes.cpu, accumulator)
 }
 
-;;Transfer X to Stack
+;;Transfer X to StackPointer
 alias nes.cpu.mnemonic.txs {
 
-        ;; store the value in X to the stack
-        nes.mem.stack push $hget(nes.cpu, x)
+        ;; i was so wrong about this. I thought this pushed
+        ;; the current value of X onto the stack, but all it
+        ;; does is set the stack pointer of whatever value is
+        ;; in the x register. this has been wrong for weeks.
+        ;; end me 😭
+        hadd nes.cpu StackPointer $hget(nes.cpu, x)
+}
+
+;;compare X to memory
+alias nes.cpu.mnemonic.cpx {
+
+        var %mode $2
+        var %operand $3
+
+
+        if (%mode == immediate) {
+
+                var %value %operand
+        }
+
+        var %result $calc($hget(nes.cpu, x) - %value)
+
+        if (%result < 0) {
+
+                var %result $calc(%result + 255)
+        }
+
+        ;; set zero flag on "equal" comparison (i.e., both accu and
+        ;; operand are the same value and result is 0)
+        setFlag zero     %result
+        ;; negative flag is set if bit 7 is set
+        setFlag negative %result
+
+        ;; carry is set if value is <= to accumulator,
+        ;; reset if greater than.
+        ;; hardcoded for now until I'm sure I can re-use
+        ;; this code for other instructions
+        if (%result <= $hget(nes.cpu, x)) {
+
+                hadd nes.cpu status.carry 1
+        }
+
+        else {
+
+                hadd nes.cpu status.carry 0
+        }
 }
 
 ;; load y index with memory
@@ -247,6 +319,11 @@ alias nes.cpu.mnemonic.sty {
                 var %address %operand
         }
 
+        elseif (%mode == absolute) {
+
+                var %address $mergeBytes(%operand)
+        }
+
         ;; store the value of y at the given address.
         nes.mem.write %address $hget(nes.cpu, y)
 
@@ -267,7 +344,6 @@ alias nes.cpu.mnemonic.iny {
         setFlag zero     $hget(nes.cpu, y)
         setFlag negative $hget(nes.cpu, y)
 }
-
 
 ;; decrement y register
 alias nes.cpu.mnemonic.dey {
@@ -299,7 +375,6 @@ alias nes.cpu.mnemonic.inx {
         setFlag negative $hget(nes.cpu, x)
 }
 
-
 ;; decrement x register
 alias nes.cpu.mnemonic.dex {
 
@@ -323,6 +398,21 @@ alias nes.cpu.mnemonic.tya {
 
         setFlag zero     $hget(nes.cpu, y)
         setFlag negative $hget(nes.cpu, y)
+}
+
+alias nes.cpu.mnemonic.sty {
+
+        var %mode $2
+        var %operand $3
+
+        if (%mode == absolute) {
+
+                var %address $mergeBytes(%operand)
+        }
+
+        nes.mem.write %address $hget(nes.cpu, y)
+
+        return %address
 }
 
 ;; Logical AND memory with accumulator
@@ -757,7 +847,7 @@ alias nes.cpu.mnemonic.jsr {
         ;; mode is always absolute
         var %operand $3-
 
-        var %address $mergeBytes(%operand)
+        var %address $calc($mergeBytes(%operand) - 1)
 
         ;; calculate the return point.
         ;; this should be the current value of the program counter, minus a few.
@@ -786,8 +876,8 @@ alias nes.cpu.mnemonic.jsr {
         echo -s . jsr return: %returnAddress
 
         ;; and now we set the program counter to our target address!
-        ;; we do gotta subtract 1 tho. stubid off by one errors...
-        hadd nes.cpu programCounter $calc(%address - 1)
+        ;; we do gotta subtract... no, add?? 1 tho. stubid off by one errors...
+        hadd nes.cpu programCounter %address
 
         return %address
 }
@@ -817,20 +907,34 @@ alias nes.cpu.mnemonic.brk {
 
         ;; mode is always implicit
 
-        ;; push program counter onto the stack
-        ;nes.mem.stack push $hget(nes.cpu, programCounter)
+        ;; increase program counter by 2(?)
+        hinc nes.cpu programCounter 2
+
+        ;; get pc in hex padded to 4 digits
+        var %pc $base($hget(nes.cpu, programCounter), 10, 16, 4)
+
+        ;; split into upper and lower byte
+        var %upper $dec($left(%pc, 2))
+        var %lower $dec($right(%pc, 2))
+
+        ;; push to stack
+        nes.mem.stack push %upper
+        nes.mem.stack push %lower
 
         ;; push processor status onto the stack...
-        ;nes.mem.stack push $dec($nes.cpu.statusFlags).bin
+        nes.mem.stack push $dec($nes.cpu.statusFlags).bin
 
-        ;; get IRQ interrupt vector at $FFFE-$FFFF
+        ;; "the cpu transfers control to the interrupt vector"
+        ;; what does this mean?
+
+        ; get IRQ interrupt vector at $FFFE-$FFFF
         ;var %lower $hex($nes.mem.read($dec(FFFE)))
         ;var %upper $hex($nes.mem.read($dec(FFFF)))
         ;var %address $+(%upper,%lower)
 
         ;hadd nes.cpu programCounter $dec(%address)
 
-        hadd nes.cpu status.break 1
+        ;hadd nes.cpu status.break 1
 }
 
 alias nes.cpu.mnemonic.inc {
@@ -903,6 +1007,14 @@ alias nes.cpu.mnemonic.ora {
 
         setFlag zero     $hget(nes.cpu, accumulator)
         setFlag negative $hget(nes.cpu, accumulator)
+}
+
+alias nes.cpu.mnemonic.nop {
+
+        ;; nothing here matters.
+        ;; there are so many types of NOPs,
+        ;; most of them illegal, but they don't
+        ;; actually affect anything, so...
 }
 
 ;; -----------------------------------------------------------------------------------------------------------------------------------
