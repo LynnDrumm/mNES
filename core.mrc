@@ -114,6 +114,11 @@ alias nes.cpu.stop {
         halt
 }
 
+alias nes.cpu.step {
+
+        nes.cpu.loop
+}
+
 alias nes.ips.calc {
 
         var %last $hget(nes.cpu, ips.last)
@@ -162,7 +167,7 @@ alias nes.cpu.loadOpcodeTable {
         var %file $scriptdir $+ ops.ini
         hload -i nes.cpu.opcode $qt(%file) opcodes
 
-        echo @nes.debug >> opcode table loaded.
+        iline @nes.debug $line(@nes.debug, -1) >> opcode table loaded.
 }
 
 alias nes.init {
