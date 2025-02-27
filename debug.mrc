@@ -100,8 +100,8 @@ alias nes.debug.init {
                 ;; print debug header, twice. this is because our cpu output
                 ;; gets printed right in between, so that it's easier to read
                 ;; the output even if we're all the way at the end.
-                debugHeader
-                debugHeader
+                echo @nes.debug $debugHeader
+                echo @nes.debug $debugHeader
         }
 }
 
@@ -113,7 +113,7 @@ alias nes.debug.stackDump {
 
 alias -l debugHeader {
 
-        echo @nes.debug 91---95cyl91-95pc91------95op91-95oprnd91----95mnm91-95result91----95A91--95X91--95Y91----95mode91--------95NVssDIZC91---95exec91--95mips91--
+        return 91---95cyl91-95pc91------95op91-95oprnd91----95mnm91-95result91----95A91--95X91--95Y91----95mode91--------95NVssDIZC91---95exec91--95mips91--
 }
 
 ;; pad $2- up to $1 characters, using $chr(160) ((unicode space))
