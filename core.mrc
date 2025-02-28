@@ -102,6 +102,9 @@ alias nes.cpu.start {
         ;; start instructions-per-second timer
         hadd nes.cpu ips.last 0
         .timernes.ips.loop 0 1 nes.ips.calc
+
+        ;; benchmark start
+        set %debug.ticks.start $ticks
 }
 
 alias nes.cpu.stop {
@@ -110,6 +113,10 @@ alias nes.cpu.stop {
         .timernes.ips.loop off
 
         iline @nes.debug $line(@nes.debug, 0) cpu loop stopped.
+
+        ;; benchmark output
+        echo @nes.debug execution took $calc(($ticks - %debug.ticks.start) / 1000) seconds.
+        unset %debug.ticks.start
 
         halt
 }

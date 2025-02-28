@@ -65,7 +65,7 @@ alias nes.debug.cpu {
                         }
 
                         ;; calculate n prettify execution time
-                        var %ticks $+(96,$calc($ticksqpc - $hget(nes.cpu, ticks.instruction)),94ms) 91/96 $calc($hget(nes.cpu, ips) / 1000000)
+                        var %ticks $+(96,$calc($ticksqpc - $hget(nes.cpu, ticks.instruction)),94ms) 91/96 $hget(nes.cpu, ips)
 
                         ;; prettify the status flag display
                         var %flags $replace($nes.cpu.statusFlags, 0, $+(30,0), 1, $+(66,1))
@@ -113,7 +113,7 @@ alias nes.debug.stackDump {
 
 alias -l debugHeader {
 
-        return 91---95cyl91-95pc91------95op91-95oprnd91----95mnm91-95result91----95A91--95X91--95Y91----95mode91--------95NVssDIZC91---95exec91--95mips91--
+        return 91---95cyl91-95pc91------95op91-95oprnd91----95mnm91-95result91----95A91--95X91--95Y91----95mode91--------95NVssDIZC91---95exec91--95ips91--
 }
 
 ;; pad $2- up to $1 characters, using $chr(160) ((unicode space))
