@@ -5,7 +5,7 @@ NES emulator in mIRCscript
 
 this is a learning experience for me. Figuring things out as I go. I don't know what I'm doing, please keep that in mind if you read the source.
 
-only a small handful of opcodes are (probably poorly) emulated so far, don't expect much to run (yet), but feel free to look around and give me feedback ^-^
+only 51 opcodes are (probably poorly) emulated so far, don't expect much to run (yet), but feel free to look around and give me feedback ^-^
 
 
 # how to use:
@@ -19,3 +19,5 @@ if you want the pretty CPU output (about the only interesting thing to look at c
 You can also manually turn on the output while the emulator runs by typing `/hadd nes.cpu debug full`, or you can set it to `error` to only show output when an error occurs. You can manipulate the status registers (`nes.cpu status.xxxxx`), accumulator, x, y, program counter, and so on the same way, if you like.
 
 `/nes.init` will always cleanly start the emulator, `/nes.cpu.start [n]` will start the emulator from the last known state, where `n` is the amount of miliseconds to wait between each cpu cycle. `/nes.cpu.stop` will stop the emulator (and is (or should be) automatically triggered when an error occurs).
+
+Somewhat compatible with Adiirc
