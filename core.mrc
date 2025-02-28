@@ -167,7 +167,6 @@ alias nes.cpu.loadOpcodeTable {
         var %file $scriptdir $+ ops.ini
         hload -i nes.cpu.opcode $qt(%file) opcodes
 
-        echo -s iline @nes.debug $line(@nes.debug, 0) >> opcode table loaded.
         iline @nes.debug $line(@nes.debug, 0) >> opcode table loaded.
 }
 
