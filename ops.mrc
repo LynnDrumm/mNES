@@ -888,6 +888,7 @@ alias nes.cpu.mnemonic.rts {
         echo -s 52 RTS
 
         ;; get topmost 2 values from the stack, that is the return address.
+
         ;; i love how incredibly cursed this is. if you performed an odd
         ;; number of push/pop operations in between a jsr and rts, you have
         ;; essentially modified the return address, which means you could

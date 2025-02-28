@@ -96,7 +96,7 @@ alias nes.cpu.start {
         hadd nes.cpu cyclesPerTimer $iif(%cycleDelay, 1, %cyclesPerInterval)
 
         ;; start cpu loop
-        iline @nes.debug $line(@nes.debug, -1) resuming cpu
+        iline @nes.debug $line(@nes.debug, 0) resuming cpu
         .timernes.cpu.loop -h 0 $iif(%cycleDelay, %cycleDelay, 0) nes.cpu.loop
 
         ;; start instructions-per-second timer
@@ -109,7 +109,7 @@ alias nes.cpu.stop {
         .timernes.cpu.loop off
         .timernes.ips.loop off
 
-        iline @nes.debug $line(@nes.debug, -1) cpu loop stopped.
+        iline @nes.debug $line(@nes.debug, 0) cpu loop stopped.
 
         halt
 }
@@ -167,7 +167,8 @@ alias nes.cpu.loadOpcodeTable {
         var %file $scriptdir $+ ops.ini
         hload -i nes.cpu.opcode $qt(%file) opcodes
 
-        iline @nes.debug $line(@nes.debug, -1) >> opcode table loaded.
+        echo -s iline @nes.debug $line(@nes.debug, 0) >> opcode table loaded.
+        iline @nes.debug $line(@nes.debug, 0) >> opcode table loaded.
 }
 
 alias nes.init {
@@ -178,7 +179,7 @@ alias nes.init {
 
         echo @nes.debug -------------------------------------
         echo @nes.debug mNES v0.4
-        echo @nes.debug (c) Lynn Drumm 2023
+        echo @nes.debug (c) Lynn Drumm 2023 - 2025
         echo @nes.debug All rights and/or wrongs reserved.
         echo @nes.debug -------------------------------------
 
